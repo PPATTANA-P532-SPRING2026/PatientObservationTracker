@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Detail — POTracker</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<nav>
+    <a class="brand" href="/">POTracker</a>
+    <a href="/">Patients</a>
+    <a href="/catalogue.html">Catalogue</a>
+    <a href="/logs.html">Logs</a>
+</nav>
+
+<div class="page">
+
+    <div id="patientHeader" class="card" style="margin-bottom:24px">
+        <p class="loading">Loading patient…</p>
+    </div>
+
+    <div id="inferencePanel" style="display:none" class="card">
+        <h2>Diagnostic Inferences</h2>
+        <div id="inferenceList"></div>
+    </div>
+
+    <div class="grid-2">
+
+        <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+                <h2 style="margin:0">Observations</h2>
+                <button class="btn btn-ghost btn-sm" onclick="evaluateRules()">⚡ Evaluate Rules</button>
+            </div>
+            <div id="obsList"><p class="loading">Loading…</p></div>
+        </div>
+
+        <div>
+
+            <div class="card">
+                <h2>Record Measurement</h2>
+                <div id="measMsg"></div>
+                <div class="form-row">
+                    <label>Phenomenon Type</label>
+                    <select id="measType"><option value="">Select…</option></select>
+                </div>
+                <div class="form-row">
+                    <label>Amount</label>
+                    <input id="measAmount" type="number" step="any" placeholder="e.g. 98.6">
+                </div>
+                <div class="form-row">
+                    <label>Unit</label>
+                    <select id="measUnit"><option value="">Select type first…</option></select>
+                </div>
+                <div class="form-row">
+                    <label>Protocol (optional)</label>
+                    <select id="measProtocol"><option value="">None</option></select>
+                </div>
+                <div class="form-row">
+                    <label>Applicability Time (optional)</label>
+                    <input id="measApply" type="datetime-local">
+                </div>
+                <button class="btn btn-primary" onclick="recordMeasurement()">Record</button>
+            </div>
+
+            <div class="card">
+                <h2>Record Category Observation</h2>
+                <div id="catMsg"></div>
+                <div class="form-row">
+                    <label>Phenomenon</label>
+                    <select id="catPhenomenon"><option value="">Select…</option></select>
+                </div>
+                <div class="form-row">
+                    <label>Presence</label>
+                    <select id="catPresence">
+                        <option value="PRESENT">Present</option>
+                        <option value="ABSENT">Absent</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Protocol (optional)</label>
+                    <select id="catProtocol"><option value="">None</option></select>
+                </div>
+                <div class="form-row">
+                    <label>Applicability Time (optional)</label>
+                    <input id="catApply" type="datetime-local">
+                </div>
+                <button class="btn btn-primary" onclick="recordCategory()">Record</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>

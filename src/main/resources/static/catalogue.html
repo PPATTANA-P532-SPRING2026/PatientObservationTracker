@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catalogue — POTracker</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<nav>
+    <a class="brand" href="/">POTracker</a>
+    <a href="/">Patients</a>
+    <a href="/catalogue.html" class="active">Catalogue</a>
+    <a href="/logs.html">Logs</a>
+</nav>
+
+<div class="page">
+    <h1>Knowledge Catalogue</h1>
+    <p class="muted" style="margin-bottom:24px">
+        Phenomenon types, protocols, and diagnostic rules are the knowledge level —
+        created by staff, rarely changed.
+    </p>
+
+    <div class="grid-2">
+
+        <div>
+            <div class="card">
+                <h2>Add Phenomenon Type</h2>
+                <div id="ptMsg"></div>
+                <div class="form-row">
+                    <label>Name</label>
+                    <input id="ptName" type="text" placeholder="e.g. Body Temperature">
+                </div>
+                <div class="form-row">
+                    <label>Kind</label>
+                    <select id="ptKind" onchange="toggleKindFields()">
+                        <option value="QUANTITATIVE">Quantitative (numeric)</option>
+                        <option value="QUALITATIVE">Qualitative (category)</option>
+                    </select>
+                </div>
+                <div id="quantFields">
+                    <div class="form-row">
+                        <label>Allowed Units (comma-separated)</label>
+                        <input id="ptUnits" type="text" placeholder="e.g. Celsius, Fahrenheit">
+                    </div>
+                </div>
+                <div id="qualFields" style="display:none">
+                    <div class="form-row">
+                        <label>Phenomena (comma-separated)</label>
+                        <input id="ptPhenomena" type="text"
+                               placeholder="e.g. Blood Group A, Blood Group B">
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="addPhenomenonType()">Add Type</button>
+            </div>
+
+            <h2>Phenomenon Types</h2>
+            <div id="ptList"><p class="loading">Loading…</p></div>
+        </div>
+
+        <div>
+
+            <div class="card">
+                <h2>Add Protocol</h2>
+                <div id="protoMsg"></div>
+                <div class="form-row">
+                    <label>Name</label>
+                    <input id="protoName" type="text" placeholder="e.g. Oral Thermometer">
+                </div>
+                <div class="form-row">
+                    <label>Description</label>
+                    <textarea id="protoDesc" placeholder="Method description…"></textarea>
+                </div>
+                <div class="form-row">
+                    <label>Accuracy</label>
+                    <select id="protoRating">
+                        <option value="HIGH">High</option>
+                        <option value="MEDIUM">Medium</option>
+                        <option value="LOW">Low</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="addProtocol()">Add Protocol</button>
+            </div>
+
+            <h2>Protocols</h2>
+            <div id="protoList"><p class="loading">Loading…</p></div>
+
+            <hr class="divider">
+
+            <div class="card">
+                <h2>Add Diagnostic Rule</h2>
+                <p class="small muted" style="margin-bottom:14px">
+                    A rule fires when ALL argument concepts are present → infers the product concept.
+                </p>
+                <div id="ruleMsg"></div>
+                <div class="form-row">
+                    <label>Rule Name</label>
+                    <input id="ruleName" type="text" placeholder="e.g. Diabetes Rule">
+                </div>
+                <div class="form-row">
+                    <label>Argument Concepts (hold Ctrl/Cmd to select multiple)</label>
+                    <select id="ruleArgs" multiple size="5"></select>
+                </div>
+                <div class="form-row">
+                    <label>Product Concept (inferred)</label>
+                    <select id="ruleProduct"></select>
+                </div>
+                <button class="btn btn-primary" onclick="addRule()">Add Rule</button>
+            </div>
+
+            <h2>Diagnostic Rules</h2>
+            <div id="ruleList"><p class="loading">Loading…</p></div>
+
+        </div>
+    </div>
+</div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>
