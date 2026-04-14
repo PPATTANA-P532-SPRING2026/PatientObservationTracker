@@ -4,10 +4,10 @@ WORKDIR /app
 COPY pom.xml .
 COPY src ./src
 RUN mvn -q package -DskipTests
-
 # Stage 2 --- run
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
+RUN mkdir -p /app/data
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java","-jar","app.jar"]
