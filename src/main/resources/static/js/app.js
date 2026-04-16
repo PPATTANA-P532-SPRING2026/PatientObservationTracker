@@ -1,3 +1,11 @@
+// ── Config ────────────────────────────────────────────────────────────
+
+const API_BASE = 'https://patientobservationtracker.onrender.com';
+
+function api(path, options) {
+    return fetch(`${API_BASE}${path}`, options);
+}
+
 // ── Shared utilities ──────────────────────────────────────────────────
 
 function showMsg(elementId, message, type) {
@@ -16,22 +24,27 @@ function formatDt(dt) {
         }) + ' ' + d.toLocaleTimeString('en-US', {
             hour: '2-digit', minute: '2-digit'
         });
-    } catch { return dt; }
+    } catch {
+        return dt;
+    }
 }
 
 function formatJson(raw) {
-    try { return JSON.stringify(JSON.parse(raw), null, 2); }
-    catch { return raw; }
+    try {
+        return JSON.stringify(JSON.parse(raw), null, 2);
+    } catch {
+        return raw;
+    }
 }
 
 // ── Router ────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
     const path = window.location.pathname;
-    if (path === '/' || path === '/index.html')  initIndex();
-    else if (path === '/patient.html')           initPatient();
-    else if (path === '/catalogue.html')         initCatalogue();
-    else if (path === '/logs.html')              initLogs();
+    if (path === '/' || path === '/index.html') initIndex();
+    else if (path === '/patient.html') initPatient();
+    else if (path === '/catalogue.html') initCatalogue();
+    else if (path === '/logs.html') initLogs();
 });
 
 // ═════════════════════════════════════════════════════════════════════
@@ -43,14 +56,17 @@ function initIndex() {
 }
 
 function loadPatients() {
-    fetch('/api/patients')
+    api('/api/patients')
         .then(r => r.json())
         .then(patients => {
             const el = document.getElementById('patientList');
+            if (!el) return;
+
             if (!patients.length) {
                 el.innerHTML = '<p class="muted">No patients yet.</p>';
                 return;
             }
+
             el.innerHTML = patients.map(p => `
                 <div class="patient-item"
                      onclick="location.href='/patient.html?id=${p.id}'">
@@ -64,36 +80,41 @@ function loadPatients() {
             `).join('');
         })
         .catch(() => {
-            document.getElementById('patientList').innerHTML =
-                '<p class="muted">Could not load patients.</p>';
+            const el = document.getElementById('patientList');
+            if (el) {
+                el.innerHTML = '<p class="muted">Could not load patients.</p>';
+            }
         });
 }
 
 function addPatient() {
     const fullName = document.getElementById('fullName').value.trim();
-    const dob      = document.getElementById('dob').value;
-    const note     = document.getElementById('note').value.trim();
+    const dob = document.getElementById('dob').value;
+    const note = document.getElementById('note').value.trim();
 
     if (!fullName || !dob) {
         showMsg('addMsg', 'Full name and date of birth are required.', 'error');
         return;
     }
 
-    fetch('/api/patients', {
+    api('/api/patients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fullName, dateOfBirth: dob, note })
     })
-    .then(r => r.json())
-    .then(p => {
-        if (p.error) { showMsg('addMsg', p.error, 'error'); return; }
-        showMsg('addMsg', `Patient "${p.fullName}" created.`, 'success');
-        document.getElementById('fullName').value = '';
-        document.getElementById('dob').value      = '';
-        document.getElementById('note').value     = '';
-        loadPatients();
-    })
-    .catch(() => showMsg('addMsg', 'Error creating patient.', 'error'));
+        .then(r => r.json())
+        .then(p => {
+            if (p.error) {
+                showMsg('addMsg', p.error, 'error');
+                return;
+            }
+            showMsg('addMsg', `Patient "${p.fullName}" created.`, 'success');
+            document.getElementById('fullName').value = '';
+            document.getElementById('dob').value = '';
+            document.getElementById('note').value = '';
+            loadPatients();
+        })
+        .catch(() => showMsg('addMsg', 'Error creating patient.', 'error'));
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -101,15 +122,18 @@ function addPatient() {
 // ═════════════════════════════════════════════════════════════════════
 
 function initPatient() {
-    const params    = new URLSearchParams(location.search);
+    const params = new URLSearchParams(location.search);
     const patientId = params.get('id');
-    if (!patientId) { location.href = '/'; return; }
+    if (!patientId) {
+        location.href = '/';
+        return;
+    }
     window.currentPatientId = patientId;
 
     Promise.all([
-        fetch(`/api/patients/${patientId}`).then(r => r.json()),
-        fetch('/api/phenomenon-types').then(r => r.json()),
-        fetch('/api/protocols').then(r => r.json())
+        api(`/api/patients/${patientId}`).then(r => r.json()),
+        api('/api/phenomenon-types').then(r => r.json()),
+        api('/api/protocols').then(r => r.json())
     ]).then(([patient, types, protocols]) => {
         renderPatientHeader(patient);
         populateMeasTypes(types.filter(t => t.kind === 'QUANTITATIVE'));
@@ -134,26 +158,28 @@ function renderPatientHeader(p) {
 function populateMeasTypes(types) {
     const sel = document.getElementById('measType');
     if (!sel) return;
+
     types.forEach(t => {
         sel.innerHTML += `<option value="${t.id}"
             data-units='${JSON.stringify(t.allowedUnits || [])}'>${t.name}</option>`;
     });
+
     sel.addEventListener('change', () => {
-        const opt   = sel.options[sel.selectedIndex];
+        const opt = sel.options[sel.selectedIndex];
         const units = JSON.parse(opt.getAttribute('data-units') || '[]');
-        const uSel  = document.getElementById('measUnit');
+        const uSel = document.getElementById('measUnit');
         uSel.innerHTML = units.map(u => `<option>${u}</option>`).join('')
-                         || '<option>No units</option>';
+            || '<option>No units</option>';
     });
 }
 
 function populatePhenomena(qualTypes) {
     const sel = document.getElementById('catPhenomenon');
     if (!sel) return;
+
     qualTypes.forEach(t => {
         (t.phenomena || []).forEach(ph => {
-            sel.innerHTML +=
-                `<option value="${ph.id}">${t.name} — ${ph.name}</option>`;
+            sel.innerHTML += `<option value="${ph.id}">${t.name} — ${ph.name}</option>`;
         });
     });
 }
@@ -163,29 +189,31 @@ function populateProtocols(protocols) {
         const sel = document.getElementById(id);
         if (!sel) return;
         protocols.forEach(p => {
-            sel.innerHTML +=
-                `<option value="${p.id}">${p.name} (${p.accuracyRating})</option>`;
+            sel.innerHTML += `<option value="${p.id}">${p.name} (${p.accuracyRating})</option>`;
         });
     });
 }
 
 function loadObservations() {
     const patientId = window.currentPatientId;
-    fetch(`/api/patients/${patientId}/observations`)
+    api(`/api/patients/${patientId}/observations`)
         .then(r => r.json())
         .then(renderObservations)
         .catch(() => {
-            document.getElementById('obsList').innerHTML =
-                '<p class="muted">Could not load observations.</p>';
+            const el = document.getElementById('obsList');
+            if (el) el.innerHTML = '<p class="muted">Could not load observations.</p>';
         });
 }
 
 function renderObservations(obs) {
     const el = document.getElementById('obsList');
+    if (!el) return;
+
     if (!obs.length) {
         el.innerHTML = '<p class="muted">No observations yet.</p>';
         return;
     }
+
     el.innerHTML = `
         <table>
             <thead><tr>
@@ -194,7 +222,7 @@ function renderObservations(obs) {
             </tr></thead>
             <tbody>
                 ${obs.map(o => {
-                    const isM   = o.amount !== undefined;
+                    const isM = o.amount !== undefined;
                     const value = isM
                         ? `${o.amount} ${o.unit}`
                         : `${o.phenomenon?.name} — ${o.presence}`;
@@ -228,12 +256,12 @@ function renderObservations(obs) {
 }
 
 function recordMeasurement() {
-    const patientId        = window.currentPatientId;
+    const patientId = window.currentPatientId;
     const phenomenonTypeId = document.getElementById('measType').value;
-    const amount           = document.getElementById('measAmount').value;
-    const unit             = document.getElementById('measUnit').value;
-    const protocolId       = document.getElementById('measProtocol').value || null;
-    const rawApply         = document.getElementById('measApply').value;
+    const amount = document.getElementById('measAmount').value;
+    const unit = document.getElementById('measUnit').value;
+    const protocolId = document.getElementById('measProtocol').value || null;
+    const rawApply = document.getElementById('measApply').value;
     const applicabilityTime = rawApply ? rawApply + ':00' : null;
 
     if (!phenomenonTypeId || !amount || !unit) {
@@ -241,30 +269,37 @@ function recordMeasurement() {
         return;
     }
 
-    fetch('/api/observations/measurement', {
+    api('/api/observations/measurement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            patientId, phenomenonTypeId, amount, unit,
-            protocolId, applicabilityTime
+            patientId,
+            phenomenonTypeId,
+            amount,
+            unit,
+            protocolId,
+            applicabilityTime
         })
     })
-    .then(r => r.json())
-    .then(res => {
-        if (res.error) { showMsg('measMsg', res.error, 'error'); return; }
-        showMsg('measMsg', 'Measurement recorded.', 'success');
-        document.getElementById('measAmount').value = '';
-        loadObservations();
-    })
-    .catch(() => showMsg('measMsg', 'Error recording measurement.', 'error'));
+        .then(r => r.json())
+        .then(res => {
+            if (res.error) {
+                showMsg('measMsg', res.error, 'error');
+                return;
+            }
+            showMsg('measMsg', 'Measurement recorded.', 'success');
+            document.getElementById('measAmount').value = '';
+            loadObservations();
+        })
+        .catch(() => showMsg('measMsg', 'Error recording measurement.', 'error'));
 }
 
 function recordCategory() {
-    const patientId    = window.currentPatientId;
+    const patientId = window.currentPatientId;
     const phenomenonId = document.getElementById('catPhenomenon').value;
-    const presence     = document.getElementById('catPresence').value;
-    const protocolId   = document.getElementById('catProtocol').value || null;
-    const rawApply     = document.getElementById('catApply').value;
+    const presence = document.getElementById('catPresence').value;
+    const protocolId = document.getElementById('catProtocol').value || null;
+    const rawApply = document.getElementById('catApply').value;
     const applicabilityTime = rawApply ? rawApply + ':00' : null;
 
     if (!phenomenonId) {
@@ -272,57 +307,66 @@ function recordCategory() {
         return;
     }
 
-    fetch('/api/observations/category', {
+    api('/api/observations/category', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            patientId, phenomenonId, presence,
-            protocolId, applicabilityTime
+            patientId,
+            phenomenonId,
+            presence,
+            protocolId,
+            applicabilityTime
         })
     })
-    .then(r => r.json())
-    .then(res => {
-        if (res.error) { showMsg('catMsg', res.error, 'error'); return; }
-        showMsg('catMsg', 'Observation recorded.', 'success');
-        loadObservations();
-    })
-    .catch(() => showMsg('catMsg', 'Error recording observation.', 'error'));
+        .then(r => r.json())
+        .then(res => {
+            if (res.error) {
+                showMsg('catMsg', res.error, 'error');
+                return;
+            }
+            showMsg('catMsg', 'Observation recorded.', 'success');
+            loadObservations();
+        })
+        .catch(() => showMsg('catMsg', 'Error recording observation.', 'error'));
 }
 
 function rejectObs(id) {
     const reason = prompt('Rejection reason:');
     if (reason === null) return;
-    fetch(`/api/observations/${id}/reject`, {
+
+    api(`/api/observations/${id}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: reason || 'No reason provided' })
     })
-    .then(() => loadObservations())
-    .catch(() => alert('Error rejecting observation.'));
+        .then(() => loadObservations())
+        .catch(() => alert('Error rejecting observation.'));
 }
 
 function evaluateRules() {
     const patientId = window.currentPatientId;
-    fetch(`/api/patients/${patientId}/evaluate`, { method: 'POST' })
+
+    api(`/api/patients/${patientId}/evaluate`, { method: 'POST' })
         .then(r => r.json())
         .then(res => {
             const panel = document.getElementById('inferencePanel');
-            const list  = document.getElementById('inferenceList');
+            const list = document.getElementById('inferenceList');
             panel.style.display = 'block';
+
             if (!res.inferences || !res.inferences.length) {
-                list.innerHTML =
-                    '<p class="muted">No rules fired for current observations.</p>';
+                list.innerHTML = '<p class="muted">No rules fired for current observations.</p>';
                 return;
             }
+
             list.innerHTML = `
                 <p class="small muted" style="margin-bottom:10px">
                     Strategy: <strong>${res.strategy}</strong>
                 </p>
-                ${res.inferences.map(i =>
-                    `<div class="inference-item">
-                         <strong>${i.name}</strong> inferred
-                     </div>`
-                ).join('')}
+                ${res.inferences.map(i => `
+                    <div class="inference-item">
+                        <strong>${i.name}</strong> inferred
+                    </div>
+                `).join('')}
             `;
         })
         .catch(() => alert('Error evaluating rules.'));
@@ -339,13 +383,21 @@ function initCatalogue() {
 }
 
 function loadCatalogue() {
-    fetch('/api/phenomenon-types').then(r => r.json()).then(types => {
-        allTypes = types;
-        renderTypes(types);
-        populateRuleSelects(types);
-    });
-    fetch('/api/protocols').then(r => r.json()).then(renderProtocols);
-    fetch('/api/associative-functions').then(r => r.json()).then(renderRules);
+    api('/api/phenomenon-types')
+        .then(r => r.json())
+        .then(types => {
+            allTypes = types;
+            renderTypes(types);
+            populateRuleSelects(types);
+        });
+
+    api('/api/protocols')
+        .then(r => r.json())
+        .then(renderProtocols);
+
+    api('/api/associative-functions')
+        .then(r => r.json())
+        .then(renderRules);
 }
 
 function toggleKindFields() {
@@ -358,7 +410,13 @@ function toggleKindFields() {
 
 function renderTypes(types) {
     const el = document.getElementById('ptList');
-    if (!types.length) { el.innerHTML = '<p class="muted">None yet.</p>'; return; }
+    if (!el) return;
+
+    if (!types.length) {
+        el.innerHTML = '<p class="muted">None yet.</p>';
+        return;
+    }
+
     el.innerHTML = `
         <table>
             <thead><tr><th>Name</th><th>Kind</th><th>Details</th></tr></thead>
@@ -382,7 +440,13 @@ function renderTypes(types) {
 
 function renderProtocols(protocols) {
     const el = document.getElementById('protoList');
-    if (!protocols.length) { el.innerHTML = '<p class="muted">None yet.</p>'; return; }
+    if (!el) return;
+
+    if (!protocols.length) {
+        el.innerHTML = '<p class="muted">None yet.</p>';
+        return;
+    }
+
     el.innerHTML = `
         <table>
             <thead><tr><th>Name</th><th>Accuracy</th><th>Description</th></tr></thead>
@@ -401,7 +465,13 @@ function renderProtocols(protocols) {
 
 function renderRules(rules) {
     const el = document.getElementById('ruleList');
-    if (!rules.length) { el.innerHTML = '<p class="muted">None yet.</p>'; return; }
+    if (!el) return;
+
+    if (!rules.length) {
+        el.innerHTML = '<p class="muted">None yet.</p>';
+        return;
+    }
+
     el.innerHTML = `
         <table>
             <thead><tr>
@@ -426,8 +496,10 @@ function populateRuleSelects(types) {
     const args = document.getElementById('ruleArgs');
     const prod = document.getElementById('ruleProduct');
     if (!args || !prod) return;
+
     args.innerHTML = '';
     prod.innerHTML = '';
+
     types.forEach(t => {
         args.innerHTML += `<option value="${t.id}">${t.name}</option>`;
         prod.innerHTML += `<option value="${t.id}">${t.name}</option>`;
@@ -437,7 +509,10 @@ function populateRuleSelects(types) {
 function addPhenomenonType() {
     const name = document.getElementById('ptName').value.trim();
     const kind = document.getElementById('ptKind').value;
-    if (!name) { showMsg('ptMsg', 'Name is required.', 'error'); return; }
+    if (!name) {
+        showMsg('ptMsg', 'Name is required.', 'error');
+        return;
+    }
 
     const body = { name, kind };
     if (kind === 'QUANTITATIVE') {
@@ -448,70 +523,82 @@ function addPhenomenonType() {
         body.phenomena = raw.split(',').map(s => s.trim()).filter(Boolean);
     }
 
-    fetch('/api/phenomenon-types', {
+    api('/api/phenomenon-types', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
     })
-    .then(r => r.json())
-    .then(res => {
-        if (res.error) { showMsg('ptMsg', res.error, 'error'); return; }
-        showMsg('ptMsg', 'Phenomenon type created.', 'success');
-        document.getElementById('ptName').value      = '';
-        document.getElementById('ptUnits').value     = '';
-        document.getElementById('ptPhenomena').value = '';
-        loadCatalogue();
-    })
-    .catch(() => showMsg('ptMsg', 'Error.', 'error'));
+        .then(r => r.json())
+        .then(res => {
+            if (res.error) {
+                showMsg('ptMsg', res.error, 'error');
+                return;
+            }
+            showMsg('ptMsg', 'Phenomenon type created.', 'success');
+            document.getElementById('ptName').value = '';
+            document.getElementById('ptUnits').value = '';
+            document.getElementById('ptPhenomena').value = '';
+            loadCatalogue();
+        })
+        .catch(() => showMsg('ptMsg', 'Error.', 'error'));
 }
 
 function addProtocol() {
-    const name           = document.getElementById('protoName').value.trim();
-    const description    = document.getElementById('protoDesc').value.trim();
+    const name = document.getElementById('protoName').value.trim();
+    const description = document.getElementById('protoDesc').value.trim();
     const accuracyRating = document.getElementById('protoRating').value;
-    if (!name) { showMsg('protoMsg', 'Name is required.', 'error'); return; }
 
-    fetch('/api/protocols', {
+    if (!name) {
+        showMsg('protoMsg', 'Name is required.', 'error');
+        return;
+    }
+
+    api('/api/protocols', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, description, accuracyRating })
     })
-    .then(r => r.json())
-    .then(res => {
-        if (res.error) { showMsg('protoMsg', res.error, 'error'); return; }
-        showMsg('protoMsg', 'Protocol created.', 'success');
-        document.getElementById('protoName').value = '';
-        document.getElementById('protoDesc').value = '';
-        loadCatalogue();
-    })
-    .catch(() => showMsg('protoMsg', 'Error.', 'error'));
+        .then(r => r.json())
+        .then(res => {
+            if (res.error) {
+                showMsg('protoMsg', res.error, 'error');
+                return;
+            }
+            showMsg('protoMsg', 'Protocol created.', 'success');
+            document.getElementById('protoName').value = '';
+            document.getElementById('protoDesc').value = '';
+            loadCatalogue();
+        })
+        .catch(() => showMsg('protoMsg', 'Error.', 'error'));
 }
 
 function addRule() {
-    const name             = document.getElementById('ruleName').value.trim();
-    const args             = document.getElementById('ruleArgs');
+    const name = document.getElementById('ruleName').value.trim();
+    const args = document.getElementById('ruleArgs');
     const productConceptId = document.getElementById('ruleProduct').value;
     const argumentConceptIds = Array.from(args.selectedOptions).map(o => o.value);
 
     if (!name || !argumentConceptIds.length || !productConceptId) {
-        showMsg('ruleMsg',
-            'Name, at least one argument, and product are required.', 'error');
+        showMsg('ruleMsg', 'Name, at least one argument, and product are required.', 'error');
         return;
     }
 
-    fetch('/api/associative-functions', {
+    api('/api/associative-functions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, argumentConceptIds, productConceptId })
     })
-    .then(r => r.json())
-    .then(res => {
-        if (res.error) { showMsg('ruleMsg', res.error, 'error'); return; }
-        showMsg('ruleMsg', 'Rule created.', 'success');
-        document.getElementById('ruleName').value = '';
-        loadCatalogue();
-    })
-    .catch(() => showMsg('ruleMsg', 'Error.', 'error'));
+        .then(r => r.json())
+        .then(res => {
+            if (res.error) {
+                showMsg('ruleMsg', res.error, 'error');
+                return;
+            }
+            showMsg('ruleMsg', 'Rule created.', 'success');
+            document.getElementById('ruleName').value = '';
+            loadCatalogue();
+        })
+        .catch(() => showMsg('ruleMsg', 'Error.', 'error'));
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -523,29 +610,32 @@ function initLogs() {
 }
 
 function loadLogs() {
-    fetch('/api/command-log')
+    api('/api/command-log')
         .then(r => r.json())
         .then(renderCommandLog)
         .catch(() => {
-            document.getElementById('commandLog').innerHTML =
-                '<p class="muted">Could not load command log.</p>';
+            const el = document.getElementById('commandLog');
+            if (el) el.innerHTML = '<p class="muted">Could not load command log.</p>';
         });
 
-    fetch('/api/audit-log')
+    api('/api/audit-log')
         .then(r => r.json())
         .then(renderAuditLog)
         .catch(() => {
-            document.getElementById('auditLog').innerHTML =
-                '<p class="muted">Could not load audit log.</p>';
+            const el = document.getElementById('auditLog');
+            if (el) el.innerHTML = '<p class="muted">Could not load audit log.</p>';
         });
 }
 
 function renderCommandLog(entries) {
     const el = document.getElementById('commandLog');
+    if (!el) return;
+
     if (!entries.length) {
         el.innerHTML = '<p class="muted">No commands yet.</p>';
         return;
     }
+
     el.innerHTML = entries.map(e => `
         <div class="card" style="margin-bottom:12px;padding:14px 16px">
             <div style="display:flex;align-items:center;
@@ -569,14 +659,17 @@ function renderCommandLog(entries) {
 
 function renderAuditLog(entries) {
     const el = document.getElementById('auditLog');
+    if (!el) return;
+
     if (!entries.length) {
         el.innerHTML = '<p class="muted">No audit entries yet.</p>';
         return;
     }
+
     el.innerHTML = entries.map(e => {
         const badgeClass = e.event.includes('REJECTED') ? 'badge-rejected'
-                         : e.event.includes('INFERRED') ? 'badge-qual'
-                         : 'badge-active';
+            : e.event.includes('INFERRED') ? 'badge-qual'
+                : 'badge-active';
         return `
             <div class="card" style="margin-bottom:12px;padding:14px 16px">
                 <div style="display:flex;align-items:center;
@@ -584,12 +677,11 @@ function renderAuditLog(entries) {
                     <span class="badge ${badgeClass}">${e.event}</span>
                     <span class="mono small muted">${formatDt(e.timestamp)}</span>
                 </div>
-                ${e.detail
-                    ? `<div class="small muted">${e.detail}</div>` : ''}
+                ${e.detail ? `<div class="small muted">${e.detail}</div>` : ''}
                 ${e.observationId
-                    ? `<div class="mono small muted" style="margin-top:4px">
-                           Obs: ${e.observationId}
-                       </div>` : ''}
+                ? `<div class="mono small muted" style="margin-top:4px">
+                       Obs: ${e.observationId}
+                   </div>` : ''}
             </div>
         `;
     }).join('');
