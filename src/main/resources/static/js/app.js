@@ -40,11 +40,12 @@ function formatJson(raw) {
 // ── Router ────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
-    const path = window.location.pathname;
-    if (path === '/' || path === '/index.html') initIndex();
-    else if (path === '/patient.html') initPatient();
-    else if (path === '/catalogue.html') initCatalogue();
-    else if (path === '/logs.html') initLogs();
+    const page = window.location.pathname.split('/').pop() || 'index.html';
+
+    if (page === 'index.html') initIndex();
+    else if (page === 'patient.html') initPatient();
+    else if (page === 'catalogue.html') initCatalogue();
+    else if (page === 'logs.html') initLogs();
 });
 
 // ═════════════════════════════════════════════════════════════════════
@@ -69,7 +70,7 @@ function loadPatients() {
 
             el.innerHTML = patients.map(p => `
                 <div class="patient-item"
-                     onclick="location.href='/patient.html?id=${p.id}'">
+                     onclick="location.href='patient.html?id=${p.id}'">
                     <div>
                         <div class="patient-name">${p.fullName}</div>
                         <div class="patient-dob">DOB: ${p.dateOfBirth}</div>
