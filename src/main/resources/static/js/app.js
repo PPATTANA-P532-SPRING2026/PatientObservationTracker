@@ -28,8 +28,7 @@ function formatDt(dt) {
 function requireUser() {
     const user = localStorage.getItem('currentUser');
     if (!user) {
-        alert('Please select a user to log in before continuing.');
-        location.href = 'logs.html';
+        alert('Please select a user from the dropdown above to log in.\n\nIf no users exist yet, go to the Logs page to create one.');
         return false;
     }
     return true;
@@ -42,13 +41,14 @@ function formatJson(raw) {
 
 // ── User session ──────────────────────────────────────────────────────
 function getCurrentUser() {
-    return localStorage.getItem('currentUser') || 'staff';
+    return localStorage.getItem('currentUser') || null;
 }
 
 function setCurrentUser() {
     const sel = document.getElementById('userSelect');
     if (!sel || !sel.value) return;
     localStorage.setItem('currentUser', sel.value);
+    checkUserSelected();   // ← add this line
 }
 
 function loadUserDropdown() {
@@ -57,13 +57,19 @@ function loadUserDropdown() {
     api('/api/users')
         .then(r => r.json())
         .then(users => {
-            const current = getCurrentUser();
+            const current = localStorage.getItem('currentUser');
             sel.innerHTML = '<option value="">Select user...</option>';
             users.forEach(u => {
                 sel.innerHTML += `<option value="${u.username}"
                     ${u.username === current ? 'selected' : ''}>
                     ${u.username} (${u.role})</option>`;
             });
+            // auto-select if only one user and none selected
+            if (!current && users.length === 1) {
+                localStorage.setItem('currentUser', users[0].username);
+                sel.value = users[0].username;
+            }
+            checkUserSelected();   // ← add this line
         })
         .catch(() => {});
 }
@@ -82,7 +88,9 @@ document.addEventListener('DOMContentLoaded', () => {
 // ═════════════════════════════════════════════════════════════════════
 function initIndex() {
     loadUserDropdown();
+    checkUserSelected();
     loadPatients();
+
 }
 
 function loadPatients() {
@@ -147,6 +155,7 @@ function addPatient() {
 // ═════════════════════════════════════════════════════════════════════
 function initPatient() {
     loadUserDropdown();
+    checkUserSelected();
     const params    = new URLSearchParams(location.search);
     const patientId = params.get('id');
     if (!patientId) { location.href = '/'; return; }
@@ -411,6 +420,7 @@ let allTypes = [];
 
 function initCatalogue() {
     loadUserDropdown();
+    checkUserSelected();
     loadCatalogue();
 }
 
@@ -696,6 +706,7 @@ function addRule() {
 // ═════════════════════════════════════════════════════════════════════
 function initLogs() {
     loadUserDropdown();
+    checkUserSelected();
     loadUsers();
     loadLogs();
 }
@@ -880,3 +891,12 @@ function updateArgWeights() {
         container.innerHTML = '';
     }
 }
+
+function checkUserSelected() {
+    const user = localStorage.getItem('currentUser');
+    const banner = document.getElementById('userWarning');
+    if (banner) {
+        banner.style.display = user ? 'none' : 'block';
+    }
+}
+
