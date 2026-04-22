@@ -25,6 +25,16 @@ function formatDt(dt) {
     } catch { return dt; }
 }
 
+function requireUser() {
+    const user = localStorage.getItem('currentUser');
+    if (!user) {
+        alert('Please select a user to log in before continuing.');
+        location.href = 'logs.html';
+        return false;
+    }
+    return true;
+}
+
 function formatJson(raw) {
     try { return JSON.stringify(JSON.parse(raw), null, 2); }
     catch { return raw; }
@@ -104,6 +114,7 @@ function loadPatients() {
 }
 
 function addPatient() {
+    if (!requireUser()) return;
     const fullName = document.getElementById('fullName').value.trim();
     const dob      = document.getElementById('dob').value;
     const note     = document.getElementById('note').value.trim();
@@ -283,6 +294,7 @@ function renderObservations(obs) {
 }
 
 function recordMeasurement() {
+    if (!requireUser()) return;
     const patientId        = window.currentPatientId;
     const phenomenonTypeId = document.getElementById('measType').value;
     const amount           = document.getElementById('measAmount').value;
@@ -317,6 +329,7 @@ function recordMeasurement() {
 }
 
 function recordCategory() {
+    if (!requireUser()) return;
     const patientId    = window.currentPatientId;
     const phenomenonId = document.getElementById('catPhenomenon').value;
     const presence     = document.getElementById('catPresence').value;
@@ -348,6 +361,7 @@ function recordCategory() {
 }
 
 function rejectObs(id) {
+    if (!requireUser()) return;
     const reason = prompt('Rejection reason:');
     if (reason === null) return;
     api(`/api/observations/${id}/reject`, {
@@ -542,6 +556,7 @@ function populateAddPhenSelects(types) {
 
 // Change 2 — sends normalMin/normalMax
 function addPhenomenonType() {
+    if (!requireUser()) return;
     const name = document.getElementById('ptName').value.trim();
     const kind = document.getElementById('ptKind').value;
     if (!name) { showMsg('ptMsg', 'Name is required.', 'error'); return; }
@@ -581,6 +596,7 @@ function addPhenomenonType() {
 
 // Change 4 — add phenomenon with optional parent concept
 function addPhenomenon() {
+    if (!requireUser()) return;
     const typeId   = document.getElementById('addPhenTypeId').value;
     const name     = document.getElementById('addPhenName').value.trim();
     const parentId = document.getElementById('addPhenParent').value || null;
@@ -609,6 +625,7 @@ function addPhenomenon() {
 }
 
 function addProtocol() {
+    if (!requireUser()) return;
     const name           = document.getElementById('protoName').value.trim();
     const description    = document.getElementById('protoDesc').value.trim();
     const accuracyRating = document.getElementById('protoRating').value;
@@ -632,6 +649,7 @@ function addProtocol() {
 
 // Change 1 — sends strategyType, threshold, argumentWeights
 function addRule() {
+    if (!requireUser()) return;
     const name             = document.getElementById('ruleName').value.trim();
     const args             = document.getElementById('ruleArgsSource');
     const productConceptId = document.getElementById('ruleProduct').value;
