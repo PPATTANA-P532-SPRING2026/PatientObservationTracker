@@ -1,5 +1,5 @@
 package com.pm.tracker.client;
-
+import com.pm.tracker.model.knowledge.StrategyType;
 import com.pm.tracker.access.AssociativeFunctionRepository;
 import com.pm.tracker.access.PhenomenonTypeRepository;
 import com.pm.tracker.engine.DiagnosisEngine;
@@ -36,11 +36,20 @@ public class DiagnosisController {
     public ResponseEntity<?> evaluate(@PathVariable UUID id) {
         try {
             Patient patient = patientManager.findById(id);
-            List<PhenomenonType> inferences = diagnosisEngine.evaluate(patient);
+            List<DiagnosisEngine.EvaluationResult> results =
+                    diagnosisEngine.evaluate(patient);
+
+            List<Map<String, Object>> response = results.stream().map(r -> {
+                Map<String, Object> entry = new LinkedHashMap<>();
+                entry.put("inferredConcept", r.getInferredConcept().getName());
+                entry.put("strategyUsed",   r.getStrategyUsed());
+                entry.put("evidenceCount",  r.getEvidence().size());
+                return entry;
+            }).toList();
+
             return ResponseEntity.ok(Map.of(
                     "patientId",  id,
-                    "strategy",   diagnosisEngine.getStrategyName(),
-                    "inferences", inferences
+                    "inferences", response
             ));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
@@ -71,13 +80,35 @@ public class DiagnosisController {
                 args.add(pt);
             }
 
-            UUID productId = UUID.fromString((String) body.get("productConceptId"));
+            UUID productId = UUID.fromString(
+                    (String) body.get("productConceptId"));
             PhenomenonType product = phenomenonTypeRepository
                     .findById(productId)
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Product PhenomenonType not found: " + productId));
+                    .orElseThrow();
 
             AssociativeFunction af = new AssociativeFunction(name, args, product);
+
+            // strategy type
+            if (body.containsKey("strategyType")) {
+                af.setStrategyType(StrategyType.valueOf(
+                        (String) body.get("strategyType")));
+            }
+
+            // threshold for weighted strategy
+            if (body.containsKey("threshold")) {
+                af.setThreshold(((Number) body.get("threshold")).doubleValue());
+            }
+
+            // argument weights — map of phenomenonTypeId -> weight
+            if (body.containsKey("argumentWeights")) {
+                @SuppressWarnings("unchecked")
+                Map<String, Number> weights =
+                        (Map<String, Number>) body.get("argumentWeights");
+                Map<String, Double> converted = new HashMap<>();
+                weights.forEach((k, v) -> converted.put(k, v.doubleValue()));
+                af.setArgumentWeights(converted);
+            }
+
             afRepository.save(af);
             return ResponseEntity.ok(af);
         } catch (Exception e) {

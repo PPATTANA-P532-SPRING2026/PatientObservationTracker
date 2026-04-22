@@ -5,10 +5,10 @@ import com.pm.tracker.access.ObservationRepository;
 import com.pm.tracker.model.operational.CategoryObservation;
 import com.pm.tracker.model.operational.Measurement;
 import com.pm.tracker.model.operational.Observation;
+import com.pm.tracker.model.operational.ObservationStatus;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-
 
 public class RecordObservationCommand implements Command {
 
@@ -30,9 +30,15 @@ public class RecordObservationCommand implements Command {
     }
 
     @Override
-    public String getCommandType() {
-        return "RECORD_OBSERVATION";
+    public void undo() {
+        // mark as REJECTED with standard undo reason
+        observation.setStatus(ObservationStatus.REJECTED);
+        observation.setRejectionReason("Undone by user");
+        observationRepository.save(observation);
     }
+
+    @Override
+    public String getCommandType() { return "RECORD_OBSERVATION"; }
 
     @Override
     public String toJson() {
@@ -46,7 +52,6 @@ public class RecordObservationCommand implements Command {
             if (observation.getProtocol() != null) {
                 payload.put("protocolId", observation.getProtocol().getId().toString());
             }
-
             if (observation instanceof Measurement m) {
                 payload.put("phenomenonTypeId", m.getPhenomenonType().getId().toString());
                 payload.put("amount",           m.getAmount());
@@ -55,14 +60,11 @@ public class RecordObservationCommand implements Command {
                 payload.put("phenomenonId", co.getPhenomenon().getId().toString());
                 payload.put("presence",     co.getPresence().name());
             }
-
             return objectMapper.writeValueAsString(payload);
         } catch (Exception e) {
             return "{\"error\":\"serialization failed\"}";
         }
     }
 
-    public Observation getObservation() {
-        return observation;
-    }
+    public Observation getObservation() { return observation; }
 }

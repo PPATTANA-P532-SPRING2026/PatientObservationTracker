@@ -29,20 +29,21 @@ public class RuleEvaluationListener {
     public void onObservationSaved(ObservationSavedEvent event) {
         Patient patient = event.getObservation().getPatient();
 
-        List<PhenomenonType> inferences = diagnosisEngine.evaluate(patient);
+        List<DiagnosisEngine.EvaluationResult> results =
+                diagnosisEngine.evaluate(patient);
 
-        if (!inferences.isEmpty()) {
-            String inferredNames = inferences.stream()
-                    .map(PhenomenonType::getName)
+        if (!results.isEmpty()) {
+            String inferredNames = results.stream()
+                    .map(r -> r.getInferredConcept().getName()
+                            + " [" + r.getStrategyUsed() + "]")
                     .collect(Collectors.joining(", "));
 
-            AuditLogEntry entry = new AuditLogEntry(
+            auditLogRepository.save(new AuditLogEntry(
                     "RULE_EVALUATION_INFERRED",
                     event.getObservation().getId(),
                     patient.getId(),
-                    "Inferred concepts: " + inferredNames
-            );
-            auditLogRepository.save(entry);
+                    "Inferred: " + inferredNames
+            ));
         }
     }
 }

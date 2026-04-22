@@ -1,19 +1,12 @@
 package com.pm.tracker.manager;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pm.tracker.access.ObservationRepository;
-import com.pm.tracker.access.PhenomenonRepository;
-import com.pm.tracker.access.PhenomenonTypeRepository;
-import com.pm.tracker.access.ProtocolRepository;
-import com.pm.tracker.command.CommandLog;
-import com.pm.tracker.command.RecordObservationCommand;
-import com.pm.tracker.command.RejectObservationCommand;
-import com.pm.tracker.event.ObservationRejectedEvent;
-import com.pm.tracker.event.ObservationSavedEvent;
+import com.pm.tracker.access.*;
+import com.pm.tracker.command.*;
+import com.pm.tracker.event.*;
 import com.pm.tracker.factory.ObservationFactory;
-import com.pm.tracker.model.knowledge.Phenomenon;
-import com.pm.tracker.model.knowledge.PhenomenonType;
-import com.pm.tracker.model.knowledge.Protocol;
+import com.pm.tracker.handler.*;
+import com.pm.tracker.model.knowledge.*;
 import com.pm.tracker.model.operational.*;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -21,7 +14,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
-
 
 @Service
 public class ObservationManager {
@@ -35,6 +27,7 @@ public class ObservationManager {
     private final CommandLog commandLog;
     private final ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper;
+    private final ObservationProcessor processorChain;
 
     public ObservationManager(ObservationFactory observationFactory,
                               ObservationRepository observationRepository,
@@ -44,7 +37,8 @@ public class ObservationManager {
                               PatientManager patientManager,
                               CommandLog commandLog,
                               ApplicationEventPublisher eventPublisher,
-                              ObjectMapper objectMapper) {
+                              ObjectMapper objectMapper,
+                              BaseObservationProcessor base) {
         this.observationFactory       = observationFactory;
         this.observationRepository    = observationRepository;
         this.phenomenonTypeRepository = phenomenonTypeRepository;
@@ -54,10 +48,18 @@ public class ObservationManager {
         this.commandLog               = commandLog;
         this.eventPublisher           = eventPublisher;
         this.objectMapper             = objectMapper;
+
+        // build decorator chain — outermost runs first
+        this.processorChain = new AuditStampingDecorator(
+                new AnomalyFlaggingDecorator(
+                        new UnitValidationDecorator(
+                                base)),
+                "staff"
+        );
     }
 
     // ── Record Measurement ────────────────────────────────────────────
-    public Measurement recordMeasurement(UUID patientId,
+    public Observation recordMeasurement(UUID patientId,
                                          UUID phenomenonTypeId,
                                          Double amount,
                                          String unit,
@@ -72,28 +74,36 @@ public class ObservationManager {
 
         Protocol protocol = resolveProtocol(protocolId);
 
-        // Factory validates kind, unit, amount — throws if invalid
-        Measurement measurement = observationFactory.createMeasurement(
-                patient, phenomenonType, amount, unit,
-                applicabilityTime, protocol);
+        // build request
+        ObservationRequest request = new ObservationRequest();
+        request.setPatient(patient);
+        request.setPhenomenonType(phenomenonType);
+        request.setAmount(amount);
+        request.setUnit(unit);
+        request.setApplicabilityTime(applicabilityTime);
+        request.setProtocol(protocol);
 
-        // Command wraps save + persists JSON payload to command log
+        // run through decorator chain
+        ObservationRequest processed = processorChain.process(request);
+
+        // factory creates from processed request
+        Observation observation = observationFactory.createFromRequest(processed);
+
         RecordObservationCommand cmd = new RecordObservationCommand(
-                measurement, observationRepository, objectMapper);
+                observation, observationRepository, objectMapper);
         commandLog.execute(cmd);
 
-        // Observer pattern — publish event; listeners handle the rest
-        eventPublisher.publishEvent(new ObservationSavedEvent(measurement));
+        eventPublisher.publishEvent(new ObservationSavedEvent(observation));
 
-        return measurement;
+        return observation;
     }
 
     // ── Record Category Observation ───────────────────────────────────
-    public CategoryObservation recordCategoryObservation(UUID patientId,
-                                                         UUID phenomenonId,
-                                                         Presence presence,
-                                                         LocalDateTime applicabilityTime,
-                                                         UUID protocolId) {
+    public Observation recordCategoryObservation(UUID patientId,
+                                                 UUID phenomenonId,
+                                                 Presence presence,
+                                                 LocalDateTime applicabilityTime,
+                                                 UUID protocolId) {
         Patient patient = patientManager.findById(patientId);
 
         Phenomenon phenomenon = phenomenonRepository
@@ -103,17 +113,25 @@ public class ObservationManager {
 
         Protocol protocol = resolveProtocol(protocolId);
 
-        // Factory validates kind and presence — throws if invalid
-        CategoryObservation catObs = observationFactory.createCategoryObservation(
-                patient, phenomenon, presence, applicabilityTime, protocol);
+        ObservationRequest request = new ObservationRequest();
+        request.setPatient(patient);
+        request.setPhenomenon(phenomenon);
+        request.setPhenomenonType(phenomenon.getPhenomenonType());
+        request.setPresence(presence);
+        request.setApplicabilityTime(applicabilityTime);
+        request.setProtocol(protocol);
+
+        ObservationRequest processed = processorChain.process(request);
+
+        Observation observation = observationFactory.createFromRequest(processed);
 
         RecordObservationCommand cmd = new RecordObservationCommand(
-                catObs, observationRepository, objectMapper);
+                observation, observationRepository, objectMapper);
         commandLog.execute(cmd);
 
-        eventPublisher.publishEvent(new ObservationSavedEvent(catObs));
+        eventPublisher.publishEvent(new ObservationSavedEvent(observation));
 
-        return catObs;
+        return observation;
     }
 
     // ── Reject Observation ────────────────────────────────────────────
@@ -130,7 +148,8 @@ public class ObservationManager {
         }
 
         RejectObservationCommand cmd = new RejectObservationCommand(
-                observation, rejectionReason, observationRepository, objectMapper);
+                observation, rejectionReason,
+                observationRepository, objectMapper);
         commandLog.execute(cmd);
 
         eventPublisher.publishEvent(

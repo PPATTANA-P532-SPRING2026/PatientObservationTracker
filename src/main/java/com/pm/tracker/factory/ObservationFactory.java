@@ -1,107 +1,88 @@
 package com.pm.tracker.factory;
 
+import com.pm.tracker.handler.ObservationRequest;
 import com.pm.tracker.model.knowledge.MeasurementKind;
 import com.pm.tracker.model.knowledge.Phenomenon;
-import com.pm.tracker.model.knowledge.PhenomenonType;
 import com.pm.tracker.model.knowledge.Protocol;
-import com.pm.tracker.model.operational.CategoryObservation;
-import com.pm.tracker.model.operational.Measurement;
-import com.pm.tracker.model.operational.Patient;
-import com.pm.tracker.model.operational.Presence;
+import com.pm.tracker.model.operational.*;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 
-/**
- * ObservationFactory — Factory pattern.
- *
- * All observation objects MUST be created through this factory.
- * Controllers must never call new Measurement(...) or
- * new CategoryObservation(...) directly.
- *
- * Responsibilities:
- *   - Validate phenomenonType kind matches the observation type
- *   - Validate unit is in the allowed set (for measurements)
- *   - Validate phenomenon belongs to the given phenomenonType (for category)
- *   - Construct and return the validated observation
- *
- * The manager trusts everything the factory produces is valid.
- */
 @Component
 public class ObservationFactory {
 
-    /**
-     * Creates a validated Measurement.
-     *
-     * @throws IllegalArgumentException if validation fails
-     */
-    public Measurement createMeasurement(Patient patient,
-                                         PhenomenonType phenomenonType,
-                                         Double amount,
-                                         String unit,
-                                         LocalDateTime applicabilityTime,
-                                         Protocol protocol) {
-
-        // Validate: phenomenonType must be QUANTITATIVE
-        if (phenomenonType.getKind() != MeasurementKind.QUANTITATIVE) {
-            throw new IllegalArgumentException(
-                    "PhenomenonType '" + phenomenonType.getName()
-                            + "' is " + phenomenonType.getKind()
-                            + " — cannot create a Measurement for a QUALITATIVE type.");
+    public Observation createFromRequest(ObservationRequest request) {
+        if (request.getAmount() != null) {
+            return createMeasurement(request);
+        } else {
+            return createCategoryObservation(request);
         }
-
-        // Validate: unit must be in the allowed set
-        if (!phenomenonType.getAllowedUnits().contains(unit)) {
-            throw new IllegalArgumentException(
-                    "Unit '" + unit + "' is not allowed for phenomenon type '"
-                            + phenomenonType.getName() + "'. Allowed units: "
-                            + phenomenonType.getAllowedUnits());
-        }
-
-        // Validate: amount must not be null
-        if (amount == null) {
-            throw new IllegalArgumentException("Amount cannot be null.");
-        }
-
-        LocalDateTime recordingTime    = LocalDateTime.now();
-        LocalDateTime applicabilityTs  = (applicabilityTime != null)
-                ? applicabilityTime
-                : recordingTime;
-
-        return new Measurement(patient, phenomenonType, amount, unit,
-                recordingTime, applicabilityTs, protocol);
     }
 
-    /**
-     * Creates a validated CategoryObservation.
-     *
-     * @throws IllegalArgumentException if validation fails
-     */
-    public CategoryObservation createCategoryObservation(Patient patient,
-                                                         Phenomenon phenomenon,
-                                                         Presence presence,
-                                                         LocalDateTime applicabilityTime,
-                                                         Protocol protocol) {
-
-        // Validate: phenomenon's type must be QUALITATIVE
-        if (phenomenon.getPhenomenonType().getKind() != MeasurementKind.QUALITATIVE) {
+    private Measurement createMeasurement(ObservationRequest request) {
+        if (request.getPhenomenonType().getKind() != MeasurementKind.QUANTITATIVE) {
             throw new IllegalArgumentException(
-                    "Phenomenon '" + phenomenon.getName()
-                            + "' belongs to a QUANTITATIVE type — cannot create "
-                            + "a CategoryObservation for a QUANTITATIVE type.");
+                    "PhenomenonType '" + request.getPhenomenonType().getName()
+                            + "' is not QUANTITATIVE.");
         }
 
-        // Validate: presence must not be null
-        if (presence == null) {
-            throw new IllegalArgumentException("Presence (PRESENT/ABSENT) cannot be null.");
+        Measurement m = new Measurement(
+                request.getPatient(),
+                request.getPhenomenonType(),
+                request.getAmount(),
+                request.getUnit(),
+                request.getRecordingTime(),
+                request.getApplicabilityTime() != null
+                        ? request.getApplicabilityTime()
+                        : request.getRecordingTime(),
+                request.getProtocol()
+        );
+        m.setAnomalyFlagged(request.isAnomalyFlagged());
+        m.setAnomalyDetail(request.getAnomalyDetail());
+        m.setSource(ObservationSource.MANUAL);
+        return m;
+    }
+
+    private CategoryObservation createCategoryObservation(
+            ObservationRequest request) {
+        if (request.getPhenomenon().getPhenomenonType().getKind()
+                != MeasurementKind.QUALITATIVE) {
+            throw new IllegalArgumentException(
+                    "Phenomenon '" + request.getPhenomenon().getName()
+                            + "' does not belong to a QUALITATIVE type.");
         }
 
-        LocalDateTime recordingTime   = LocalDateTime.now();
-        LocalDateTime applicabilityTs = (applicabilityTime != null)
-                ? applicabilityTime
-                : recordingTime;
+        CategoryObservation co = new CategoryObservation(
+                request.getPatient(),
+                request.getPhenomenon(),
+                request.getPresence(),
+                request.getRecordingTime(),
+                request.getApplicabilityTime() != null
+                        ? request.getApplicabilityTime()
+                        : request.getRecordingTime(),
+                request.getProtocol()
+        );
+        co.setAnomalyFlagged(false);
+        co.setSource(ObservationSource.MANUAL);
+        return co;
+    }
 
-        return new CategoryObservation(patient, phenomenon, presence,
-                recordingTime, applicabilityTs, protocol);
+    // ── Change 4 — create an INFERRED category observation ────────────
+    /**
+     * Creates an INFERRED CategoryObservation.
+     * Called by PropagationListener — not by controllers or managers.
+     * Source is set to INFERRED so rule evaluation excludes it.
+     */
+    public CategoryObservation createInferredCategoryObservation(
+            Patient patient,
+            Phenomenon phenomenon,
+            Presence presence) {
+        LocalDateTime now = LocalDateTime.now();
+        CategoryObservation co = new CategoryObservation(
+                patient, phenomenon, presence, now, now, null);
+        co.setSource(ObservationSource.INFERRED);
+        co.setAnomalyFlagged(false);
+        return co;
     }
 }

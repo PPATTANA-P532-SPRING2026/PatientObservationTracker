@@ -38,6 +38,11 @@ public class PhenomenonType {
             cascade = CascadeType.ALL,
             fetch = FetchType.EAGER)
     private List<Phenomenon> phenomena = new ArrayList<>();
+    @Column
+    private Double normalMin;
+
+    @Column
+    private Double normalMax;
 
     public PhenomenonType() {}
 
@@ -81,4 +86,8 @@ public class PhenomenonType {
     public void setPhenomena(List<Phenomenon> p) {
         this.phenomena = p;
     }
+    public Double getNormalMin()             { return normalMin; }
+    public void setNormalMin(Double min)     { this.normalMin = min; }
+    public Double getNormalMax()             { return normalMax; }
+    public void setNormalMax(Double max)     { this.normalMax = max; }
 }

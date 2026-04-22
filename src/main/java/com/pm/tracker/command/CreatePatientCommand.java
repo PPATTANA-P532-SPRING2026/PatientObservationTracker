@@ -6,7 +6,6 @@ import com.pm.tracker.model.operational.Patient;
 
 import java.util.Map;
 
-
 public class CreatePatientCommand implements Command {
 
     private final Patient patient;
@@ -16,9 +15,9 @@ public class CreatePatientCommand implements Command {
     public CreatePatientCommand(Patient patient,
                                 PatientRepository patientRepository,
                                 ObjectMapper objectMapper) {
-        this.patient            = patient;
-        this.patientRepository  = patientRepository;
-        this.objectMapper       = objectMapper;
+        this.patient           = patient;
+        this.patientRepository = patientRepository;
+        this.objectMapper      = objectMapper;
     }
 
     @Override
@@ -27,9 +26,14 @@ public class CreatePatientCommand implements Command {
     }
 
     @Override
-    public String getCommandType() {
-        return "CREATE_PATIENT";
+    public void undo() {
+        // Cannot undo patient creation — spec requires this
+        throw new UnsupportedOperationException(
+                "CreatePatientCommand cannot be undone.");
     }
+
+    @Override
+    public String getCommandType() { return "CREATE_PATIENT"; }
 
     @Override
     public String toJson() {
@@ -44,7 +48,5 @@ public class CreatePatientCommand implements Command {
         }
     }
 
-    public Patient getPatient() {
-        return patient;
-    }
+    public Patient getPatient() { return patient; }
 }

@@ -80,6 +80,7 @@ public class PhenomenonTypeController {
     }
 
     // POST /api/phenomenon-types/{id}/phenomena — add a phenomenon to a type
+    // POST /api/phenomenon-types/{id}/phenomena
     @PostMapping("/{id}/phenomena")
     public ResponseEntity<?> addPhenomenon(@PathVariable UUID id,
                                            @RequestBody Map<String, String> body) {
@@ -90,10 +91,21 @@ public class PhenomenonTypeController {
 
             if (pt.getKind() != MeasurementKind.QUALITATIVE) {
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Can only add phenomena to QUALITATIVE types"));
+                        .body(Map.of("error",
+                                "Can only add phenomena to QUALITATIVE types"));
             }
 
             Phenomenon p = new Phenomenon(body.get("name"), pt);
+
+            // Change 4 — optional parent concept
+            if (body.containsKey("parentConceptId")
+                    && body.get("parentConceptId") != null
+                    && !body.get("parentConceptId").isBlank()) {
+                UUID parentId = UUID.fromString(body.get("parentConceptId"));
+                phenomenonRepository.findById(parentId)
+                        .ifPresent(p::setParentConcept);
+            }
+
             phenomenonRepository.save(p);
             return ResponseEntity.ok(p);
         } catch (Exception e) {

@@ -35,6 +35,14 @@ public abstract class Observation {
 
     @Column(length = 1000)
     private String rejectionReason;
+    @Column(nullable = false)
+    private boolean anomalyFlagged = false;
+
+    @Column(length = 500)
+    private String anomalyDetail;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ObservationSource source = ObservationSource.MANUAL;
 
     // ── constructors ──────────────────────────────────────────────────
     protected Observation() {}
@@ -64,4 +72,10 @@ public abstract class Observation {
     public void setStatus(ObservationStatus s)           { this.status = s; }
     public String getRejectionReason()                   { return rejectionReason; }
     public void setRejectionReason(String r)             { this.rejectionReason = r; }
+    public boolean isAnomalyFlagged()              { return anomalyFlagged; }
+    public void setAnomalyFlagged(boolean flagged) { this.anomalyFlagged = flagged; }
+    public String getAnomalyDetail()               { return anomalyDetail; }
+    public void setAnomalyDetail(String detail)    { this.anomalyDetail = detail; }
+    public ObservationSource getSource()             { return source; }
+    public void setSource(ObservationSource source)  { this.source = source; }
 }

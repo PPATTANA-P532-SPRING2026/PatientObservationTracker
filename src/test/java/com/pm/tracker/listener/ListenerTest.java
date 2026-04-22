@@ -5,6 +5,7 @@ import com.pm.tracker.access.AssociativeFunctionRepository;
 import com.pm.tracker.access.ObservationRepository;
 import com.pm.tracker.engine.DiagnosisEngine;
 import com.pm.tracker.engine.SimpleConjunctiveStrategy;
+import com.pm.tracker.engine.WeightedScoringStrategy;
 import com.pm.tracker.event.ObservationRejectedEvent;
 import com.pm.tracker.event.ObservationSavedEvent;
 import com.pm.tracker.model.knowledge.MeasurementKind;
@@ -49,6 +50,7 @@ class ListenerTest {
 
         diagnosisEngine = new DiagnosisEngine(
                 new SimpleConjunctiveStrategy(),
+                new WeightedScoringStrategy(),      // ← add this
                 afRepository,
                 observationRepository);
 

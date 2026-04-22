@@ -7,11 +7,6 @@ import com.pm.tracker.model.operational.ObservationStatus;
 
 import java.util.Map;
 
-/**
- * Command — wraps the "reject observation" action.
- * Sets status to REJECTED and records the rejection reason.
- * Observation remains in the database for audit trail purposes.
- */
 public class RejectObservationCommand implements Command {
 
     private final Observation observation;
@@ -37,9 +32,15 @@ public class RejectObservationCommand implements Command {
     }
 
     @Override
-    public String getCommandType() {
-        return "REJECT_OBSERVATION";
+    public void undo() {
+        // restore to ACTIVE and clear the rejection reason
+        observation.setStatus(ObservationStatus.ACTIVE);
+        observation.setRejectionReason(null);
+        observationRepository.save(observation);
     }
+
+    @Override
+    public String getCommandType() { return "REJECT_OBSERVATION"; }
 
     @Override
     public String toJson() {
@@ -54,7 +55,5 @@ public class RejectObservationCommand implements Command {
         }
     }
 
-    public Observation getObservation() {
-        return observation;
-    }
+    public Observation getObservation() { return observation; }
 }
