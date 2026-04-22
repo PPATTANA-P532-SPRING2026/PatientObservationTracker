@@ -68,7 +68,8 @@ function loadUserDropdown() {
             sel.innerHTML = '<option value="">Select user...</option>';
 
             users.forEach(u => {
-                sel.innerHTML += `<option value="${u.username}" ${u.username === current ? 'selected' : ''}>
+                sel.innerHTML += `<option value="${u.username}"
+                    ${u.username === current ? 'selected' : ''}>
                     ${u.username} (${u.role})</option>`;
             });
 
@@ -79,7 +80,9 @@ function loadUserDropdown() {
                 sel.value = current || '';
             }
 
+
             sel.addEventListener('change', setCurrentUser);
+
             checkUserSelected();
         })
         .catch(() => {});
@@ -904,10 +907,9 @@ function updateArgWeights() {
 }
 
 function checkUserSelected() {
-    const user = localStorage.getItem('currentUser');
+    const sel = document.getElementById('userSelect');
     const banner = document.getElementById('userWarning');
-    if (banner) {
-        banner.style.display = user ? 'none' : 'block';
-    }
+    if (!banner || !sel) return;
+    banner.style.display = sel.value ? 'none' : 'block';
 }
 

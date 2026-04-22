@@ -69,11 +69,7 @@ public class ObservationFactory {
     }
 
     // ── Change 4 — create an INFERRED category observation ────────────
-    /**
-     * Creates an INFERRED CategoryObservation.
-     * Called by PropagationListener — not by controllers or managers.
-     * Source is set to INFERRED so rule evaluation excludes it.
-     */
+
     public CategoryObservation createInferredCategoryObservation(
             Patient patient,
             Phenomenon phenomenon,
