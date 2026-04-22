@@ -46,30 +46,41 @@ function getCurrentUser() {
 
 function setCurrentUser() {
     const sel = document.getElementById('userSelect');
-    if (!sel || !sel.value) return;
-    localStorage.setItem('currentUser', sel.value);
-    checkUserSelected();   // ← add this line
+    if (!sel) return;
+
+    if (sel.value) {
+        localStorage.setItem('currentUser', sel.value);
+    } else {
+        localStorage.removeItem('currentUser');
+    }
+
+    checkUserSelected();
 }
 
 function loadUserDropdown() {
     const sel = document.getElementById('userSelect');
     if (!sel) return;
+
     api('/api/users')
         .then(r => r.json())
         .then(users => {
             const current = localStorage.getItem('currentUser');
             sel.innerHTML = '<option value="">Select user...</option>';
+
             users.forEach(u => {
-                sel.innerHTML += `<option value="${u.username}"
-                    ${u.username === current ? 'selected' : ''}>
+                sel.innerHTML += `<option value="${u.username}" ${u.username === current ? 'selected' : ''}>
                     ${u.username} (${u.role})</option>`;
             });
-            // auto-select if only one user and none selected
+
             if (!current && users.length === 1) {
                 localStorage.setItem('currentUser', users[0].username);
                 sel.value = users[0].username;
+            } else {
+                sel.value = current || '';
             }
-            checkUserSelected();   // ← add this line
+
+            sel.addEventListener('change', setCurrentUser);
+            checkUserSelected();
         })
         .catch(() => {});
 }
