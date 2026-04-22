@@ -13,6 +13,8 @@ import java.util.*;
 /**
  * PhenomenonTypeController — Layer 1 Client.
  * CRUD for PhenomenonType and Phenomenon (knowledge level).
+ * Change 2: accepts normalMin/normalMax for anomaly detection.
+ * Change 4: accepts parentConceptId when adding a phenomenon.
  */
 @RestController
 @RequestMapping("/api/phenomenon-types")
@@ -21,8 +23,9 @@ public class PhenomenonTypeController {
     private final PhenomenonTypeRepository phenomenonTypeRepository;
     private final PhenomenonRepository phenomenonRepository;
 
-    public PhenomenonTypeController(PhenomenonTypeRepository phenomenonTypeRepository,
-                                    PhenomenonRepository phenomenonRepository) {
+    public PhenomenonTypeController(
+            PhenomenonTypeRepository phenomenonTypeRepository,
+            PhenomenonRepository phenomenonRepository) {
         this.phenomenonTypeRepository = phenomenonTypeRepository;
         this.phenomenonRepository     = phenomenonRepository;
     }
@@ -58,9 +61,17 @@ public class PhenomenonTypeController {
                 pt.setAllowedUnits(new HashSet<>(units));
             }
 
+            // Change 2 — normal range for AnomalyFlaggingDecorator
+            if (body.containsKey("normalMin")) {
+                pt.setNormalMin(((Number) body.get("normalMin")).doubleValue());
+            }
+            if (body.containsKey("normalMax")) {
+                pt.setNormalMax(((Number) body.get("normalMax")).doubleValue());
+            }
+
             phenomenonTypeRepository.save(pt);
 
-            // phenomena for QUALITATIVE — create child Phenomenon entities
+            // phenomena for QUALITATIVE
             if (body.containsKey("phenomena")) {
                 @SuppressWarnings("unchecked")
                 List<String> phenNames = (List<String>) body.get("phenomena");
@@ -68,7 +79,6 @@ public class PhenomenonTypeController {
                     Phenomenon p = new Phenomenon(pname, pt);
                     phenomenonRepository.save(p);
                 }
-                // reload to include phenomena
                 pt = phenomenonTypeRepository.findById(pt.getId()).orElse(pt);
             }
 
@@ -79,25 +89,25 @@ public class PhenomenonTypeController {
         }
     }
 
-    // POST /api/phenomenon-types/{id}/phenomena — add a phenomenon to a type
     // POST /api/phenomenon-types/{id}/phenomena
+    // Change 4 — accepts optional parentConceptId
     @PostMapping("/{id}/phenomena")
-    public ResponseEntity<?> addPhenomenon(@PathVariable UUID id,
-                                           @RequestBody Map<String, String> body) {
+    public ResponseEntity<?> addPhenomenon(
+            @PathVariable UUID id,
+            @RequestBody Map<String, String> body) {
         try {
             PhenomenonType pt = phenomenonTypeRepository.findById(id)
                     .orElseThrow(() -> new IllegalArgumentException(
                             "PhenomenonType not found: " + id));
 
             if (pt.getKind() != MeasurementKind.QUALITATIVE) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("error",
-                                "Can only add phenomena to QUALITATIVE types"));
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Can only add phenomena to QUALITATIVE types"));
             }
 
             Phenomenon p = new Phenomenon(body.get("name"), pt);
 
-            // Change 4 — optional parent concept
+            // Change 4 — optional parent concept for hierarchy
             if (body.containsKey("parentConceptId")
                     && body.get("parentConceptId") != null
                     && !body.get("parentConceptId").isBlank()) {
@@ -121,7 +131,8 @@ public class PhenomenonTypeController {
             PhenomenonType pt = phenomenonTypeRepository.findById(id)
                     .orElseThrow(() -> new IllegalArgumentException(
                             "PhenomenonType not found: " + id));
-            return ResponseEntity.ok(phenomenonRepository.findByPhenomenonType(pt));
+            return ResponseEntity.ok(
+                    phenomenonRepository.findByPhenomenonType(pt));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", e.getMessage()));

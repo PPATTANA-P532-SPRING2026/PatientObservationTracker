@@ -7,24 +7,33 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-
 <nav>
     <a class="brand" href="index.html">POTracker</a>
     <a href="index.html">Patients</a>
     <a href="catalogue.html" class="active">Catalogue</a>
     <a href="logs.html">Logs</a>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+        <span style="color:rgba(255,255,255,.5);font-size:12px">Logged in as:</span>
+        <select id="userSelect" onchange="setCurrentUser()"
+                style="background:#2a2a27;color:#fff;border:1px solid rgba(255,255,255,.2);
+                   border-radius:4px;padding:4px 8px;font-size:12px;cursor:pointer">
+            <option value="">Select user...</option>
+        </select>
+    </div>
 </nav>
 
 <div class="page">
     <h1>Knowledge Catalogue</h1>
     <p class="muted" style="margin-bottom:24px">
-        Phenomenon types, protocols, and diagnostic rules are the knowledge level —
-        created by staff, rarely changed.
+        Phenomenon types, protocols, and diagnostic rules — created by staff, rarely changed.
     </p>
 
     <div class="grid-2">
 
+        <!-- LEFT COLUMN -->
         <div>
+
+            <!-- Add Phenomenon Type -->
             <div class="card">
                 <h2>Add Phenomenon Type</h2>
                 <div id="ptMsg"></div>
@@ -39,12 +48,25 @@
                         <option value="QUALITATIVE">Qualitative (category)</option>
                     </select>
                 </div>
+
+                <!-- QUANTITATIVE fields -->
                 <div id="quantFields">
                     <div class="form-row">
                         <label>Allowed Units (comma-separated)</label>
                         <input id="ptUnits" type="text" placeholder="e.g. Celsius, Fahrenheit">
                     </div>
+                    <!-- Change 2 — normal range for anomaly detection -->
+                    <div class="form-row">
+                        <label>Normal Min (optional — for anomaly detection)</label>
+                        <input id="ptNormalMin" type="number" step="any" placeholder="e.g. 70">
+                    </div>
+                    <div class="form-row">
+                        <label>Normal Max (optional — for anomaly detection)</label>
+                        <input id="ptNormalMax" type="number" step="any" placeholder="e.g. 140">
+                    </div>
                 </div>
+
+                <!-- QUALITATIVE fields -->
                 <div id="qualFields" style="display:none">
                     <div class="form-row">
                         <label>Phenomena (comma-separated)</label>
@@ -52,15 +74,45 @@
                                placeholder="e.g. Blood Group A, Blood Group B, Blood Group O">
                     </div>
                 </div>
+
                 <button class="btn btn-primary" onclick="addPhenomenonType()">Add Type</button>
             </div>
 
-            <h2>Phenomenon Types</h2>
+            <!-- Change 4 — Add Phenomenon with parent concept -->
+            <div class="card" style="margin-top:20px">
+                <h2>Add Phenomenon to Existing Type</h2>
+                <p class="small muted" style="margin-bottom:14px">
+                    Add a child phenomenon with an optional parent concept for the hierarchy.
+                </p>
+                <div id="addPhenMsg"></div>
+                <div class="form-row">
+                    <label>Qualitative Phenomenon Type</label>
+                    <select id="addPhenTypeId">
+                        <option value="">Select type...</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Phenomenon Name</label>
+                    <input id="addPhenName" type="text" placeholder="e.g. Type I Diabetes">
+                </div>
+                <div class="form-row">
+                    <label>Parent Concept (optional)</label>
+                    <select id="addPhenParent">
+                        <option value="">None (top level)</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="addPhenomenon()">Add Phenomenon</button>
+            </div>
+
+            <h2 style="margin-top:24px">Phenomenon Types</h2>
             <div id="ptList"><p class="loading">Loading...</p></div>
+
         </div>
 
+        <!-- RIGHT COLUMN -->
         <div>
 
+            <!-- Add Protocol -->
             <div class="card">
                 <h2>Add Protocol</h2>
                 <div id="protoMsg"></div>
@@ -88,19 +140,19 @@
 
             <hr class="divider">
 
+            <!-- Add Diagnostic Rule -->
             <div class="card">
                 <h2>Add Diagnostic Rule</h2>
                 <p class="small muted" style="margin-bottom:14px">
-                    A rule fires when argument concepts satisfy the chosen strategy
-                    and infers the product concept.
+                    A rule fires when argument concepts satisfy the chosen strategy.
                 </p>
                 <div id="ruleMsg"></div>
-
                 <div class="form-row">
                     <label>Rule Name</label>
                     <input id="ruleName" type="text" placeholder="e.g. Diabetes Rule">
                 </div>
 
+                <!-- Change 1 — strategy selection -->
                 <div class="form-row">
                     <label>Strategy</label>
                     <select id="ruleStrategy" onchange="toggleThreshold()">
@@ -109,6 +161,7 @@
                     </select>
                 </div>
 
+                <!-- Change 1 — threshold only shown for WEIGHTED -->
                 <div id="thresholdField" style="display:none">
                     <div class="form-row">
                         <label>Threshold (sum of weights needed to fire rule)</label>
@@ -118,15 +171,13 @@
                 </div>
 
                 <div class="form-row">
-                    <label>Argument Concepts (hold Ctrl/Cmd to select multiple)</label>
+                    <label>Argument Concepts (hold Ctrl/Cmd for multiple)</label>
                     <select id="ruleArgs" multiple size="5"></select>
                 </div>
-
                 <div class="form-row">
                     <label>Product Concept (inferred when rule fires)</label>
                     <select id="ruleProduct"></select>
                 </div>
-
                 <button class="btn btn-primary" onclick="addRule()">Add Rule</button>
             </div>
 
