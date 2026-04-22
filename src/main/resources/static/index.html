@@ -10,9 +10,24 @@
 
 <nav>
     <a class="brand" href="/">POTracker</a>
-    <a href="index.html" class="active">Patients</a>
+    <a href="/">Patients</a>
     <a href="catalogue.html">Catalogue</a>
     <a href="logs.html">Logs</a>
+
+    <!-- login dropdown -->
+    <div style="margin-left:auto;display:flex;
+              align-items:center;gap:10px">
+    <span style="color:rgba(255,255,255,.5);
+                 font-size:12px">Logged in as:</span>
+        <select id="userSelect"
+                onchange="setCurrentUser()"
+                style="background:#2a2a27;color:#fff;
+                   border:1px solid rgba(255,255,255,.2);
+                   border-radius:4px;padding:4px 8px;
+                   font-size:12px;cursor:pointer">
+            <option value="">Select user…</option>
+        </select>
+    </div>
 </nav>
 
 <div class="page">

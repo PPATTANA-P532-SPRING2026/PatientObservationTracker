@@ -33,7 +33,6 @@ public class RejectObservationCommand implements Command {
 
     @Override
     public void undo() {
-        // restore to ACTIVE and clear the rejection reason
         observation.setStatus(ObservationStatus.ACTIVE);
         observation.setRejectionReason(null);
         observationRepository.save(observation);
@@ -48,7 +47,8 @@ public class RejectObservationCommand implements Command {
             return objectMapper.writeValueAsString(Map.of(
                     "observationId",  observation.getId().toString(),
                     "patientId",      observation.getPatient().getId().toString(),
-                    "rejectionReason",rejectionReason != null ? rejectionReason : ""
+                    "rejectionReason",rejectionReason != null
+                            ? rejectionReason : ""
             ));
         } catch (Exception e) {
             return "{\"error\":\"serialization failed\"}";

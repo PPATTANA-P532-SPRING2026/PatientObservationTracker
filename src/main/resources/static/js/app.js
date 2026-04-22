@@ -1,5 +1,4 @@
 // ── Config ────────────────────────────────────────────────────────────
-
 const API_BASE = 'https://patientobservationtracker-2.onrender.com';
 
 function api(path, options) {
@@ -7,7 +6,6 @@ function api(path, options) {
 }
 
 // ── Shared utilities ──────────────────────────────────────────────────
-
 function showMsg(elementId, message, type) {
     const el = document.getElementById(elementId);
     if (!el) return;
@@ -24,24 +22,46 @@ function formatDt(dt) {
         }) + ' ' + d.toLocaleTimeString('en-US', {
             hour: '2-digit', minute: '2-digit'
         });
-    } catch {
-        return dt;
-    }
+    } catch { return dt; }
 }
 
 function formatJson(raw) {
-    try {
-        return JSON.stringify(JSON.parse(raw), null, 2);
-    } catch {
-        return raw;
-    }
+    try { return JSON.stringify(JSON.parse(raw), null, 2); }
+    catch { return raw; }
+}
+
+// ── User session ──────────────────────────────────────────────────────
+function getCurrentUser() {
+    return localStorage.getItem('currentUser') || 'staff';
+}
+
+function setCurrentUser() {
+    const sel = document.getElementById('userSelect');
+    if (!sel || !sel.value) return;
+    localStorage.setItem('currentUser', sel.value);
+}
+
+function loadUserDropdown() {
+    const sel = document.getElementById('userSelect');
+    if (!sel) return;
+    api('/api/users')
+        .then(r => r.json())
+        .then(users => {
+            const current = getCurrentUser();
+            sel.innerHTML = '<option value="">Select user...</option>';
+            users.forEach(u => {
+                sel.innerHTML += `<option value="${u.username}"
+                    ${u.username === current ? 'selected' : ''}>
+                    ${u.username} (${u.role})</option>`;
+            });
+        })
+        .catch(() => {});
 }
 
 // ── Router ────────────────────────────────────────────────────────────
-
 document.addEventListener('DOMContentLoaded', () => {
     const page = window.location.pathname.split('/').pop() || 'index.html';
-    if (page === 'index.html' || page === '')  initIndex();
+    if (page === 'index.html' || page === '') initIndex();
     else if (page === 'patient.html')          initPatient();
     else if (page === 'catalogue.html')        initCatalogue();
     else if (page === 'logs.html')             initLogs();
@@ -50,8 +70,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // ═════════════════════════════════════════════════════════════════════
 // INDEX PAGE
 // ═════════════════════════════════════════════════════════════════════
-
 function initIndex() {
+    loadUserDropdown();
     loadPatients();
 }
 
@@ -73,7 +93,7 @@ function loadPatients() {
                         <div class="patient-dob">DOB: ${p.dateOfBirth}</div>
                         ${p.note ? `<div class="small muted">${p.note}</div>` : ''}
                     </div>
-                    <span class="btn btn-ghost btn-sm">View →</span>
+                    <span class="btn btn-ghost btn-sm">View</span>
                 </div>
             `).join('');
         })
@@ -87,15 +107,13 @@ function addPatient() {
     const fullName = document.getElementById('fullName').value.trim();
     const dob      = document.getElementById('dob').value;
     const note     = document.getElementById('note').value.trim();
-
     if (!fullName || !dob) {
         showMsg('addMsg', 'Full name and date of birth are required.', 'error');
         return;
     }
-
     api('/api/patients', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Current-User': getCurrentUser() },
         body: JSON.stringify({ fullName, dateOfBirth: dob, note })
     })
     .then(r => r.json())
@@ -113,13 +131,12 @@ function addPatient() {
 // ═════════════════════════════════════════════════════════════════════
 // PATIENT PAGE
 // ═════════════════════════════════════════════════════════════════════
-
 function initPatient() {
+    loadUserDropdown();
     const params    = new URLSearchParams(location.search);
     const patientId = params.get('id');
     if (!patientId) { location.href = '/'; return; }
     window.currentPatientId = patientId;
-
     Promise.all([
         api(`/api/patients/${patientId}`).then(r => r.json()),
         api('/api/phenomenon-types').then(r => r.json()),
@@ -130,7 +147,6 @@ function initPatient() {
         populatePhenomena(types.filter(t => t.kind === 'QUALITATIVE'));
         populateProtocols(protocols);
     });
-
     loadObservations();
 }
 
@@ -197,53 +213,26 @@ function loadObservations() {
 function renderObservations(obs) {
     const el = document.getElementById('obsList');
     if (!el) return;
-    if (!obs.length) {
-        el.innerHTML = '<p class="muted">No observations yet.</p>';
-        return;
-    }
-
+    if (!obs.length) { el.innerHTML = '<p class="muted">No observations yet.</p>'; return; }
     el.innerHTML = `
         <table>
             <thead><tr>
-                <th>Type</th><th>Value</th><th>Recorded</th>
-                <th>Status</th><th></th>
+                <th>Type</th><th>Value</th><th>Recorded</th><th>Status</th><th></th>
             </tr></thead>
             <tbody>
                 ${obs.map(o => {
                     const isM   = o.amount !== undefined;
-                    const value = isM
-                        ? `${o.amount} ${o.unit}`
-                        : `${o.phenomenon?.name} — ${o.presence}`;
-                    const typeName = isM
-                        ? (o.phenomenonType?.name || '—')
-                        : (o.phenomenon?.phenomenonType?.name || '—');
-
-                    // Week 2 — anomaly badge
-                    const anomalyBadge = o.anomalyFlagged
-                        ? `<span class="badge badge-rejected">⚠ ANOMALY</span>`
-                        : '';
-
-                    // Week 2 — inferred style
-                    const inferredStyle = o.source === 'INFERRED'
-                        ? 'font-style:italic;color:var(--muted)'
-                        : '';
-
+                    const value = isM ? `${o.amount} ${o.unit}` : `${o.phenomenon?.name} — ${o.presence}`;
+                    const typeName = isM ? (o.phenomenonType?.name || '—') : (o.phenomenon?.phenomenonType?.name || '—');
+                    const anomalyBadge = o.anomalyFlagged ? `<span class="badge badge-rejected">⚠ ANOMALY</span>` : '';
+                    const inferredStyle = o.source === 'INFERRED' ? 'font-style:italic;color:var(--muted)' : '';
                     const badge = o.status === 'ACTIVE'
                         ? `<span class="badge badge-active">ACTIVE</span>`
                         : `<span class="badge badge-rejected">REJECTED</span>`;
-
-                    // Week 2 — inferred badge
                     const inferredBadge = o.source === 'INFERRED'
-                        ? `<span class="badge"
-                               style="background:#f0f0f0;color:var(--muted)">
-                               INFERRED</span>`
-                        : '';
-
+                        ? `<span class="badge" style="background:#f0f0f0;color:var(--muted)">INFERRED</span>` : '';
                     const rejectBtn = o.status === 'ACTIVE'
-                        ? `<button class="btn btn-danger btn-sm"
-                               onclick="rejectObs('${o.id}')">Reject</button>`
-                        : '';
-
+                        ? `<button class="btn btn-danger btn-sm" onclick="rejectObs('${o.id}')">Reject</button>` : '';
                     return `
                         <tr style="${inferredStyle}">
                             <td><span class="small muted">${typeName}</span></td>
@@ -252,16 +241,8 @@ function renderObservations(obs) {
                             <td>${badge} ${inferredBadge}</td>
                             <td>${rejectBtn}</td>
                         </tr>
-                        ${o.anomalyDetail
-                            ? `<tr><td colspan="5" class="small muted"
-                                   style="padding-top:0;color:var(--danger)">
-                                   ⚠ ${o.anomalyDetail}</td></tr>`
-                            : ''}
-                        ${o.rejectionReason
-                            ? `<tr><td colspan="5" class="small muted"
-                                   style="padding-top:0">
-                                   ↳ ${o.rejectionReason}</td></tr>`
-                            : ''}
+                        ${o.anomalyDetail ? `<tr><td colspan="5" class="small muted" style="padding-top:0;color:var(--danger)">⚠ ${o.anomalyDetail}</td></tr>` : ''}
+                        ${o.rejectionReason ? `<tr><td colspan="5" class="small muted" style="padding-top:0">↳ ${o.rejectionReason}</td></tr>` : ''}
                     `;
                 }).join('')}
             </tbody>
@@ -277,19 +258,13 @@ function recordMeasurement() {
     const protocolId       = document.getElementById('measProtocol').value || null;
     const rawApply         = document.getElementById('measApply').value;
     const applicabilityTime = rawApply ? rawApply + ':00' : null;
-
     if (!phenomenonTypeId || !amount || !unit) {
-        showMsg('measMsg', 'Type, amount and unit are required.', 'error');
-        return;
+        showMsg('measMsg', 'Type, amount and unit are required.', 'error'); return;
     }
-
     api('/api/observations/measurement', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            patientId, phenomenonTypeId, amount, unit,
-            protocolId, applicabilityTime
-        })
+        headers: { 'Content-Type': 'application/json', 'X-Current-User': getCurrentUser() },
+        body: JSON.stringify({ patientId, phenomenonTypeId, amount, unit, protocolId, applicabilityTime })
     })
     .then(r => r.json())
     .then(res => {
@@ -308,19 +283,11 @@ function recordCategory() {
     const protocolId   = document.getElementById('catProtocol').value || null;
     const rawApply     = document.getElementById('catApply').value;
     const applicabilityTime = rawApply ? rawApply + ':00' : null;
-
-    if (!phenomenonId) {
-        showMsg('catMsg', 'Phenomenon is required.', 'error');
-        return;
-    }
-
+    if (!phenomenonId) { showMsg('catMsg', 'Phenomenon is required.', 'error'); return; }
     api('/api/observations/category', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            patientId, phenomenonId, presence,
-            protocolId, applicabilityTime
-        })
+        headers: { 'Content-Type': 'application/json', 'X-Current-User': getCurrentUser() },
+        body: JSON.stringify({ patientId, phenomenonId, presence, protocolId, applicabilityTime })
     })
     .then(r => r.json())
     .then(res => {
@@ -336,7 +303,7 @@ function rejectObs(id) {
     if (reason === null) return;
     api(`/api/observations/${id}/reject`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Current-User': getCurrentUser() },
         body: JSON.stringify({ reason: reason || 'No reason provided' })
     })
     .then(() => loadObservations())
@@ -352,19 +319,14 @@ function evaluateRules() {
             const list  = document.getElementById('inferenceList');
             panel.style.display = 'block';
             if (!res.inferences || !res.inferences.length) {
-                list.innerHTML =
-                    '<p class="muted">No rules fired for current observations.</p>';
+                list.innerHTML = '<p class="muted">No rules fired for current observations.</p>';
                 return;
             }
             list.innerHTML = res.inferences.map(i => `
                 <div class="inference-item">
                     <strong>${i.inferredConcept}</strong> inferred
-                    <span class="badge badge-quant"
-                          style="margin-left:8px">${i.strategyUsed}</span>
-                    <span class="small muted"
-                          style="margin-left:8px">
-                        ${i.evidenceCount} evidence observation(s)
-                    </span>
+                    <span class="badge badge-quant" style="margin-left:8px">${i.strategyUsed}</span>
+                    <span class="small muted" style="margin-left:8px">${i.evidenceCount} evidence observation(s)</span>
                 </div>
             `).join('');
         })
@@ -374,10 +336,10 @@ function evaluateRules() {
 // ═════════════════════════════════════════════════════════════════════
 // CATALOGUE PAGE
 // ═════════════════════════════════════════════════════════════════════
-
 let allTypes = [];
 
 function initCatalogue() {
+    loadUserDropdown();
     loadCatalogue();
 }
 
@@ -393,91 +355,59 @@ function loadCatalogue() {
 
 function toggleKindFields() {
     const kind = document.getElementById('ptKind').value;
-    document.getElementById('quantFields').style.display =
-        kind === 'QUANTITATIVE' ? '' : 'none';
-    document.getElementById('qualFields').style.display =
-        kind === 'QUALITATIVE' ? '' : 'none';
+    document.getElementById('quantFields').style.display = kind === 'QUANTITATIVE' ? '' : 'none';
+    document.getElementById('qualFields').style.display  = kind === 'QUALITATIVE'  ? '' : 'none';
 }
 
-// Week 2 — show/hide threshold field based on strategy
 function toggleThreshold() {
     const strategy = document.getElementById('ruleStrategy').value;
-    document.getElementById('thresholdField').style.display =
-        strategy === 'WEIGHTED' ? '' : 'none';
+    document.getElementById('thresholdField').style.display = strategy === 'WEIGHTED' ? '' : 'none';
 }
 
 function renderTypes(types) {
     const el = document.getElementById('ptList');
     if (!el) return;
     if (!types.length) { el.innerHTML = '<p class="muted">None yet.</p>'; return; }
-    el.innerHTML = `
-        <table>
-            <thead><tr><th>Name</th><th>Kind</th><th>Details</th></tr></thead>
-            <tbody>
-                ${types.map(t => {
-                    const badge = t.kind === 'QUANTITATIVE'
-                        ? '<span class="badge badge-quant">QUANT</span>'
-                        : '<span class="badge badge-qual">QUAL</span>';
-                    const detail = t.kind === 'QUANTITATIVE'
-                        ? (t.allowedUnits || []).join(', ')
-                        : (t.phenomena || []).map(p => p.name).join(', ');
-                    return `<tr>
-                        <td>${t.name}</td><td>${badge}</td>
-                        <td class="small muted">${detail}</td>
-                    </tr>`;
-                }).join('')}
-            </tbody>
-        </table>
-    `;
+    el.innerHTML = `<table><thead><tr><th>Name</th><th>Kind</th><th>Details</th></tr></thead><tbody>
+        ${types.map(t => {
+            const badge = t.kind === 'QUANTITATIVE'
+                ? '<span class="badge badge-quant">QUANT</span>'
+                : '<span class="badge badge-qual">QUAL</span>';
+            const detail = t.kind === 'QUANTITATIVE'
+                ? (t.allowedUnits || []).join(', ')
+                : (t.phenomena || []).map(p => p.name).join(', ');
+            return `<tr><td>${t.name}</td><td>${badge}</td><td class="small muted">${detail}</td></tr>`;
+        }).join('')}
+    </tbody></table>`;
 }
 
 function renderProtocols(protocols) {
     const el = document.getElementById('protoList');
     if (!el) return;
     if (!protocols.length) { el.innerHTML = '<p class="muted">None yet.</p>'; return; }
-    el.innerHTML = `
-        <table>
-            <thead><tr><th>Name</th><th>Accuracy</th><th>Description</th></tr></thead>
-            <tbody>
-                ${protocols.map(p => `
-                    <tr>
-                        <td>${p.name}</td>
-                        <td><span class="badge badge-active">${p.accuracyRating}</span></td>
-                        <td class="small muted">${p.description || ''}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
+    el.innerHTML = `<table><thead><tr><th>Name</th><th>Accuracy</th><th>Description</th></tr></thead><tbody>
+        ${protocols.map(p => `<tr>
+            <td>${p.name}</td>
+            <td><span class="badge badge-active">${p.accuracyRating}</span></td>
+            <td class="small muted">${p.description || ''}</td>
+        </tr>`).join('')}
+    </tbody></table>`;
 }
 
-// Week 2 — renderRules shows strategy column
 function renderRules(rules) {
     const el = document.getElementById('ruleList');
     if (!el) return;
     if (!rules.length) { el.innerHTML = '<p class="muted">None yet.</p>'; return; }
-    el.innerHTML = `
-        <table>
-            <thead><tr>
-                <th>Rule</th><th>Strategy</th>
-                <th>Arguments</th><th>Infers</th>
-            </tr></thead>
-            <tbody>
-                ${rules.map(r => `
-                    <tr>
-                        <td>${r.name}</td>
-                        <td><span class="badge badge-quant">
-                            ${r.strategyType || 'CONJUNCTIVE'}
-                        </span></td>
-                        <td class="small">
-                            ${(r.argumentConcepts || []).map(c => c.name).join(' + ')}
-                        </td>
-                        <td><strong>${r.productConcept?.name || '—'}</strong></td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
+    el.innerHTML = `<table><thead><tr>
+        <th>Rule</th><th>Strategy</th><th>Arguments</th><th>Infers</th>
+    </tr></thead><tbody>
+        ${rules.map(r => `<tr>
+            <td>${r.name}</td>
+            <td><span class="badge badge-quant">${r.strategyType || 'CONJUNCTIVE'}</span></td>
+            <td class="small">${(r.argumentConcepts || []).map(c => c.name).join(' + ')}</td>
+            <td><strong>${r.productConcept?.name || '—'}</strong></td>
+        </tr>`).join('')}
+    </tbody></table>`;
 }
 
 function populateRuleSelects(types) {
@@ -496,16 +426,14 @@ function addPhenomenonType() {
     const name = document.getElementById('ptName').value.trim();
     const kind = document.getElementById('ptKind').value;
     if (!name) { showMsg('ptMsg', 'Name is required.', 'error'); return; }
-
     const body = { name, kind };
     if (kind === 'QUANTITATIVE') {
-        const raw = document.getElementById('ptUnits').value;
-        body.allowedUnits = raw.split(',').map(s => s.trim()).filter(Boolean);
+        body.allowedUnits = document.getElementById('ptUnits').value
+            .split(',').map(s => s.trim()).filter(Boolean);
     } else {
-        const raw = document.getElementById('ptPhenomena').value;
-        body.phenomena = raw.split(',').map(s => s.trim()).filter(Boolean);
+        body.phenomena = document.getElementById('ptPhenomena').value
+            .split(',').map(s => s.trim()).filter(Boolean);
     }
-
     api('/api/phenomenon-types', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -528,7 +456,6 @@ function addProtocol() {
     const description    = document.getElementById('protoDesc').value.trim();
     const accuracyRating = document.getElementById('protoRating').value;
     if (!name) { showMsg('protoMsg', 'Name is required.', 'error'); return; }
-
     api('/api/protocols', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -545,33 +472,22 @@ function addProtocol() {
     .catch(() => showMsg('protoMsg', 'Error.', 'error'));
 }
 
-// Week 2 — addRule sends strategyType, threshold, argumentWeights
 function addRule() {
     const name             = document.getElementById('ruleName').value.trim();
     const args             = document.getElementById('ruleArgs');
     const productConceptId = document.getElementById('ruleProduct').value;
     const strategyType     = document.getElementById('ruleStrategy').value;
-    const threshold        = parseFloat(
-        document.getElementById('ruleThreshold').value || '0.5');
+    const threshold        = parseFloat(document.getElementById('ruleThreshold').value || '0.5');
     const argumentConceptIds = Array.from(args.selectedOptions).map(o => o.value);
-
     if (!name || !argumentConceptIds.length || !productConceptId) {
-        showMsg('ruleMsg',
-            'Name, at least one argument, and product are required.', 'error');
-        return;
+        showMsg('ruleMsg', 'Name, at least one argument, and product are required.', 'error'); return;
     }
-
-    // default weight 1.0 per concept
     const argumentWeights = {};
     argumentConceptIds.forEach(id => { argumentWeights[id] = 1.0; });
-
     api('/api/associative-functions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            name, argumentConceptIds, productConceptId,
-            strategyType, threshold, argumentWeights
-        })
+        body: JSON.stringify({ name, argumentConceptIds, productConceptId, strategyType, threshold, argumentWeights })
     })
     .then(r => r.json())
     .then(res => {
@@ -586,74 +502,55 @@ function addRule() {
 // ═════════════════════════════════════════════════════════════════════
 // LOGS PAGE
 // ═════════════════════════════════════════════════════════════════════
-
 function initLogs() {
+    loadUserDropdown();
+    loadUsers();
     loadLogs();
 }
 
 function loadLogs() {
-    api('/api/command-log')
-        .then(r => r.json())
-        .then(renderCommandLog)
+    api('/api/command-log').then(r => r.json()).then(renderCommandLog)
         .catch(() => {
             const el = document.getElementById('commandLog');
             if (el) el.innerHTML = '<p class="muted">Could not load command log.</p>';
         });
-
-    api('/api/audit-log')
-        .then(r => r.json())
-        .then(renderAuditLog)
+    api('/api/audit-log').then(r => r.json()).then(renderAuditLog)
         .catch(() => {
             const el = document.getElementById('auditLog');
             if (el) el.innerHTML = '<p class="muted">Could not load audit log.</p>';
         });
 }
 
-// Week 2 — shows undo button and UNDONE badge
 function renderCommandLog(entries) {
     const el = document.getElementById('commandLog');
     if (!el) return;
-    if (!entries.length) {
-        el.innerHTML = '<p class="muted">No commands yet.</p>';
-        return;
-    }
+    if (!entries.length) { el.innerHTML = '<p class="muted">No commands yet.</p>'; return; }
     el.innerHTML = entries.map(e => `
         <div class="card" style="margin-bottom:12px;padding:14px 16px">
-            <div style="display:flex;align-items:center;
-                        justify-content:space-between;margin-bottom:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
                 <span class="badge badge-quant">${e.commandType}</span>
                 <div style="display:flex;gap:8px;align-items:center">
                     ${!e.undone && e.commandType !== 'CREATE_PATIENT'
-                        ? `<button class="btn btn-danger btn-sm"
-                               onclick="undoCommand('${e.id}')">Undo</button>`
-                        : ''}
-                    ${e.undone
-                        ? `<span class="badge badge-rejected">UNDONE</span>`
-                        : ''}
+                        ? `<button class="btn btn-danger btn-sm" onclick="undoCommand('${e.id}')">Undo</button>` : ''}
+                    ${e.undone ? `<span class="badge badge-rejected">UNDONE</span>` : ''}
                     <span class="mono small muted">${formatDt(e.executedAt)}</span>
                 </div>
             </div>
             <div class="small muted">User: <strong>${e.user}</strong></div>
             <details style="margin-top:8px">
-                <summary class="small"
-                         style="cursor:pointer;color:var(--accent)">
-                    View payload
-                </summary>
-                <pre style="margin-top:8px;font-size:11px;background:var(--bg);
-                    padding:10px;border-radius:4px;overflow:auto;
-                    white-space:pre-wrap">${formatJson(e.payload)}</pre>
+                <summary class="small" style="cursor:pointer;color:var(--accent)">View payload</summary>
+                <pre style="margin-top:8px;font-size:11px;background:var(--bg);padding:10px;border-radius:4px;overflow:auto;white-space:pre-wrap">${formatJson(e.payload)}</pre>
             </details>
         </div>
     `).join('');
 }
 
-// Week 2 — undo a command
 function undoCommand(id) {
     if (!confirm('Are you sure you want to undo this command?')) return;
     api(`/api/command-log/${id}/undo`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: 'staff' })
+        body: JSON.stringify({ user: getCurrentUser() })
     })
     .then(r => r.json())
     .then(res => {
@@ -666,28 +563,54 @@ function undoCommand(id) {
 function renderAuditLog(entries) {
     const el = document.getElementById('auditLog');
     if (!el) return;
-    if (!entries.length) {
-        el.innerHTML = '<p class="muted">No audit entries yet.</p>';
-        return;
-    }
+    if (!entries.length) { el.innerHTML = '<p class="muted">No audit entries yet.</p>'; return; }
     el.innerHTML = entries.map(e => {
         const badgeClass = e.event.includes('REJECTED') ? 'badge-rejected'
                          : e.event.includes('INFERRED') ? 'badge-qual'
                          : 'badge-active';
         return `
             <div class="card" style="margin-bottom:12px;padding:14px 16px">
-                <div style="display:flex;align-items:center;
-                            justify-content:space-between;margin-bottom:8px">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
                     <span class="badge ${badgeClass}">${e.event}</span>
                     <span class="mono small muted">${formatDt(e.timestamp)}</span>
                 </div>
-                ${e.detail
-                    ? `<div class="small muted">${e.detail}</div>` : ''}
-                ${e.observationId
-                    ? `<div class="mono small muted" style="margin-top:4px">
-                           Obs: ${e.observationId}
-                       </div>` : ''}
+                ${e.detail ? `<div class="small muted">${e.detail}</div>` : ''}
+                ${e.observationId ? `<div class="mono small muted" style="margin-top:4px">Obs: ${e.observationId}</div>` : ''}
             </div>
         `;
     }).join('');
+}
+
+function loadUsers() {
+    api('/api/users').then(r => r.json()).then(users => {
+        const el = document.getElementById('userList');
+        if (!el) return;
+        if (!users.length) { el.innerHTML = '<p class="muted small">No users yet.</p>'; return; }
+        el.innerHTML = `<table><thead><tr><th>Username</th><th>Role</th></tr></thead><tbody>
+            ${users.map(u => `<tr>
+                <td class="mono">${u.username}</td>
+                <td><span class="badge ${u.role === 'ADMIN' ? 'badge-rejected' : 'badge-active'}">${u.role}</span></td>
+            </tr>`).join('')}
+        </tbody></table>`;
+    });
+}
+
+function createUser() {
+    const username = document.getElementById('newUsername').value.trim();
+    const role     = document.getElementById('newRole').value;
+    if (!username) { showMsg('userMsg', 'Username is required.', 'error'); return; }
+    api('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, role })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.error) { showMsg('userMsg', res.error, 'error'); return; }
+        showMsg('userMsg', `User "${res.username}" created.`, 'success');
+        document.getElementById('newUsername').value = '';
+        loadUsers();
+        loadUserDropdown();
+    })
+    .catch(() => showMsg('userMsg', 'Error creating user.', 'error'));
 }

@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -25,6 +26,7 @@ class CommandUndoTest {
 
     @Mock private PatientRepository patientRepository;
     @Mock private ObservationRepository observationRepository;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     private ObjectMapper objectMapper;
     private Patient patient;
@@ -53,7 +55,8 @@ class CommandUndoTest {
     void recordObservationCommand_undo_setsStatusRejected() {
         // Arrange
         RecordObservationCommand cmd = new RecordObservationCommand(
-                observation, observationRepository, objectMapper);
+                observation, observationRepository,
+                objectMapper, eventPublisher);
 
         // Act
         cmd.undo();
@@ -62,17 +65,21 @@ class CommandUndoTest {
         assertEquals(ObservationStatus.REJECTED, observation.getStatus());
         assertEquals("Undone by user", observation.getRejectionReason());
         verify(observationRepository).save(observation);
+
+        // verify the rejection event was fired with the correct type
+        verify(eventPublisher).publishEvent(
+                any(com.pm.tracker.event.ObservationRejectedEvent.class));
     }
 
     @Test
     void rejectObservationCommand_undo_restoresActive() {
-        // Arrange — first reject it
+        // Arrange
         observation.setStatus(ObservationStatus.REJECTED);
         observation.setRejectionReason("Wrong entry");
 
         RejectObservationCommand cmd = new RejectObservationCommand(
                 observation, "Wrong entry",
-                observationRepository, objectMapper);
+                observationRepository, objectMapper);  // unchanged
 
         // Act
         cmd.undo();

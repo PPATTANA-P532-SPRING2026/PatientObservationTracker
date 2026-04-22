@@ -11,11 +11,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * PatientManager — Layer 2 Manager.
- * Orchestrates patient-related use cases.
- * All persistence goes through commands via CommandLog.
- */
 @Service
 public class PatientManager {
 
@@ -31,27 +26,26 @@ public class PatientManager {
         this.objectMapper      = objectMapper;
     }
 
-    // ── Create ────────────────────────────────────────────────────────
     public Patient createPatient(String fullName,
                                  LocalDate dateOfBirth,
-                                 String note) {
+                                 String note,
+                                 String currentUser) {
         if (fullName == null || fullName.isBlank()) {
-            throw new IllegalArgumentException("Patient full name cannot be blank.");
+            throw new IllegalArgumentException(
+                    "Patient full name cannot be blank.");
         }
         if (dateOfBirth == null) {
-            throw new IllegalArgumentException("Date of birth cannot be null.");
+            throw new IllegalArgumentException(
+                    "Date of birth cannot be null.");
         }
 
         Patient patient = new Patient(fullName, dateOfBirth, note);
-
         CreatePatientCommand cmd = new CreatePatientCommand(
                 patient, patientRepository, objectMapper);
-        commandLog.execute(cmd);
-
+        commandLog.execute(cmd, currentUser);
         return patient;
     }
 
-    // ── Query ─────────────────────────────────────────────────────────
     public List<Patient> listAll() {
         return patientRepository.findAll();
     }

@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -26,6 +27,7 @@ class CommandTest {
 
     @Mock private PatientRepository patientRepository;
     @Mock private ObservationRepository observationRepository;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     private ObjectMapper objectMapper;
     private Patient patient;
@@ -75,7 +77,7 @@ class CommandTest {
                 LocalDateTime.now(), LocalDateTime.now(), null);
 
         RecordObservationCommand cmd = new RecordObservationCommand(
-                m, observationRepository, objectMapper);
+                m, observationRepository, objectMapper, eventPublisher); // ← add eventPublisher
 
         // Act
         cmd.execute();

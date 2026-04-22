@@ -10,32 +10,24 @@ import java.util.UUID;
 @Service
 public class CommandLog {
 
-    private static final String CURRENT_USER = "staff";
-
     private final CommandLogRepository commandLogRepository;
 
     public CommandLog(CommandLogRepository commandLogRepository) {
         this.commandLogRepository = commandLogRepository;
     }
 
-    public void execute(Command command) {
+    public void execute(Command command, String user) {
         command.execute();
-
         CommandLogEntry entry = new CommandLogEntry(
                 command.getCommandType(),
                 command.toJson(),
                 LocalDateTime.now(),
-                CURRENT_USER,
+                user,
                 command
         );
         commandLogRepository.save(entry);
     }
 
-    /**
-     * Undoes the command identified by logEntryId.
-     * Only the user who executed it may undo it.
-     * A command already undone cannot be undone again.
-     */
     public void undo(UUID logEntryId, String requestingUser) {
         CommandLogEntry entry = commandLogRepository.findById(logEntryId)
                 .orElseThrow(() -> new IllegalArgumentException(

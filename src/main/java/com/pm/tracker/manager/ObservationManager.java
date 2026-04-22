@@ -49,11 +49,9 @@ public class ObservationManager {
         this.eventPublisher           = eventPublisher;
         this.objectMapper             = objectMapper;
 
-        // build decorator chain — outermost runs first
         this.processorChain = new AuditStampingDecorator(
                 new AnomalyFlaggingDecorator(
-                        new UnitValidationDecorator(
-                                base)),
+                        new UnitValidationDecorator(base)),
                 "staff"
         );
     }
@@ -64,7 +62,8 @@ public class ObservationManager {
                                          Double amount,
                                          String unit,
                                          LocalDateTime applicabilityTime,
-                                         UUID protocolId) {
+                                         UUID protocolId,
+                                         String currentUser) {
         Patient patient = patientManager.findById(patientId);
 
         PhenomenonType phenomenonType = phenomenonTypeRepository
@@ -74,7 +73,6 @@ public class ObservationManager {
 
         Protocol protocol = resolveProtocol(protocolId);
 
-        // build request
         ObservationRequest request = new ObservationRequest();
         request.setPatient(patient);
         request.setPhenomenonType(phenomenonType);
@@ -83,18 +81,14 @@ public class ObservationManager {
         request.setApplicabilityTime(applicabilityTime);
         request.setProtocol(protocol);
 
-        // run through decorator chain
         ObservationRequest processed = processorChain.process(request);
-
-        // factory creates from processed request
         Observation observation = observationFactory.createFromRequest(processed);
 
         RecordObservationCommand cmd = new RecordObservationCommand(
-                observation, observationRepository, objectMapper);
-        commandLog.execute(cmd);
+                observation, observationRepository, objectMapper, eventPublisher);
+        commandLog.execute(cmd, currentUser);
 
         eventPublisher.publishEvent(new ObservationSavedEvent(observation));
-
         return observation;
     }
 
@@ -103,7 +97,8 @@ public class ObservationManager {
                                                  UUID phenomenonId,
                                                  Presence presence,
                                                  LocalDateTime applicabilityTime,
-                                                 UUID protocolId) {
+                                                 UUID protocolId,
+                                                 String currentUser) {
         Patient patient = patientManager.findById(patientId);
 
         Phenomenon phenomenon = phenomenonRepository
@@ -122,21 +117,20 @@ public class ObservationManager {
         request.setProtocol(protocol);
 
         ObservationRequest processed = processorChain.process(request);
-
         Observation observation = observationFactory.createFromRequest(processed);
 
         RecordObservationCommand cmd = new RecordObservationCommand(
-                observation, observationRepository, objectMapper);
-        commandLog.execute(cmd);
+                observation, observationRepository, objectMapper, eventPublisher);
+        commandLog.execute(cmd, currentUser);
 
         eventPublisher.publishEvent(new ObservationSavedEvent(observation));
-
         return observation;
     }
 
     // ── Reject Observation ────────────────────────────────────────────
     public Observation rejectObservation(UUID observationId,
-                                         String rejectionReason) {
+                                         String rejectionReason,
+                                         String currentUser) {
         Observation observation = observationRepository
                 .findById(observationId)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -150,11 +144,10 @@ public class ObservationManager {
         RejectObservationCommand cmd = new RejectObservationCommand(
                 observation, rejectionReason,
                 observationRepository, objectMapper);
-        commandLog.execute(cmd);
+        commandLog.execute(cmd, currentUser);
 
         eventPublisher.publishEvent(
                 new ObservationRejectedEvent(observation, rejectionReason));
-
         return observation;
     }
 
@@ -165,7 +158,6 @@ public class ObservationManager {
                 .findByPatientOrderByRecordingTimeDesc(patient);
     }
 
-    // ── helpers ───────────────────────────────────────────────────────
     private Protocol resolveProtocol(UUID protocolId) {
         if (protocolId == null) return null;
         return protocolRepository.findById(protocolId)

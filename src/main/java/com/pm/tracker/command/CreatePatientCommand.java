@@ -27,7 +27,6 @@ public class CreatePatientCommand implements Command {
 
     @Override
     public void undo() {
-        // Cannot undo patient creation — spec requires this
         throw new UnsupportedOperationException(
                 "CreatePatientCommand cannot be undone.");
     }
@@ -41,7 +40,8 @@ public class CreatePatientCommand implements Command {
             return objectMapper.writeValueAsString(Map.of(
                     "fullName",    patient.getFullName(),
                     "dateOfBirth", patient.getDateOfBirth().toString(),
-                    "note",        patient.getNote() != null ? patient.getNote() : ""
+                    "note",        patient.getNote() != null
+                            ? patient.getNote() : ""
             ));
         } catch (Exception e) {
             return "{\"error\":\"serialization failed\"}";

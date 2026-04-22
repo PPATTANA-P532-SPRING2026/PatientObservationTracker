@@ -10,10 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * PatientController — Layer 1 Client.
- * Zero business logic. Parses HTTP, calls PatientManager, returns JSON.
- */
 @RestController
 @RequestMapping("/api/patients")
 public class PatientController {
@@ -24,33 +20,35 @@ public class PatientController {
         this.patientManager = patientManager;
     }
 
-    // GET /api/patients
     @GetMapping
     public List<Patient> listAll() {
         return patientManager.listAll();
     }
 
-    // GET /api/patients/{id}
     @GetMapping("/{id}")
     public ResponseEntity<?> getById(@PathVariable UUID id) {
         try {
             return ResponseEntity.ok(patientManager.findById(id));
-        } catch (IllegalArgumentException e) {
+        } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }
     }
 
-    // POST /api/patients
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> create(
+            @RequestBody Map<String, String> body,
+            @RequestHeader(value = "X-Current-User",
+                    defaultValue = "staff") String currentUser) {
         try {
-            String fullName    = body.get("fullName");
-            LocalDate dob      = LocalDate.parse(body.get("dateOfBirth"));
-            String note        = body.get("note");
-            Patient patient    = patientManager.createPatient(fullName, dob, note);
+            String fullName = body.get("fullName");
+            LocalDate dob   = LocalDate.parse(body.get("dateOfBirth"));
+            String note     = body.get("note");
+            Patient patient = patientManager.createPatient(
+                    fullName, dob, note, currentUser);
             return ResponseEntity.ok(patient);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", e.getMessage()));
         }
     }
 }
