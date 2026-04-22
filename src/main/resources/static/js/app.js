@@ -73,16 +73,8 @@ function loadUserDropdown() {
                     ${u.username} (${u.role})</option>`;
             });
 
-            if (!current && users.length === 1) {
-                localStorage.setItem('currentUser', users[0].username);
-                sel.value = users[0].username;
-            } else {
-                sel.value = current || '';
-            }
-
-
-            sel.addEventListener('change', setCurrentUser);
-
+            sel.value = current || '';
+            sel.onchange = setCurrentUser;
             checkUserSelected();
         })
         .catch(() => {});
