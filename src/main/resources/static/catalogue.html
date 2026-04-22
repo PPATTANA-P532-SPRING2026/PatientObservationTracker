@@ -147,10 +147,49 @@
                     A rule fires when argument concepts satisfy the chosen strategy.
                 </p>
                 <div id="ruleMsg"></div>
+
                 <div class="form-row">
                     <label>Rule Name</label>
                     <input id="ruleName" type="text" placeholder="e.g. Diabetes Rule">
                 </div>
+
+                <div class="form-row">
+                    <label>Strategy</label>
+                    <select id="ruleStrategy" onchange="toggleThreshold()">
+                        <option value="CONJUNCTIVE">Conjunctive - ALL must be present</option>
+                        <option value="WEIGHTED">Weighted - score must meet threshold</option>
+                    </select>
+                </div>
+
+                <div id="thresholdField" style="display:none">
+                    <div class="form-row">
+                        <label>Threshold (sum of weights needed to fire rule)</label>
+                        <input id="ruleThreshold" type="number"
+                               step="0.1" min="0" max="100" placeholder="e.g. 0.7">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <label>Argument Concepts</label>
+                    <select id="ruleArgsSource" multiple size="5"
+                            onchange="updateArgWeights()">
+                    </select>
+                    <p class="small muted" style="margin-top:6px">
+                        Hold Ctrl/Cmd to select multiple.
+                        Weight inputs appear below for Weighted strategy.
+                    </p>
+                </div>
+
+                <!-- dynamic weight inputs per selected concept -->
+                <div id="argWeightInputs" style="margin-bottom:14px"></div>
+
+                <div class="form-row">
+                    <label>Product Concept (inferred when rule fires)</label>
+                    <select id="ruleProduct"></select>
+                </div>
+
+                <button class="btn btn-primary" onclick="addRule()">Add Rule</button>
+            </div>
 
                 <!-- Change 1 — strategy selection -->
                 <div class="form-row">

@@ -424,6 +424,7 @@ function toggleThreshold() {
     const strategy = document.getElementById('ruleStrategy').value;
     document.getElementById('thresholdField').style.display =
         strategy === 'WEIGHTED' ? '' : 'none';
+    updateArgWeights();  // ← refresh weight inputs when strategy changes
 }
 
 // Change 2 — show normal range column in table
@@ -508,7 +509,7 @@ function renderRules(rules) {
 }
 
 function populateRuleSelects(types) {
-    const args = document.getElementById('ruleArgs');
+    const args = document.getElementById('ruleArgsSource');  // ← changed id
     const prod = document.getElementById('ruleProduct');
     if (!args || !prod) return;
     args.innerHTML = '';
@@ -632,12 +633,13 @@ function addProtocol() {
 // Change 1 — sends strategyType, threshold, argumentWeights
 function addRule() {
     const name             = document.getElementById('ruleName').value.trim();
-    const args             = document.getElementById('ruleArgs');
+    const args             = document.getElementById('ruleArgsSource');
     const productConceptId = document.getElementById('ruleProduct').value;
     const strategyType     = document.getElementById('ruleStrategy').value;
     const threshold        = parseFloat(
         document.getElementById('ruleThreshold').value || '0.5');
-    const argumentConceptIds = Array.from(args.selectedOptions).map(o => o.value);
+    const argumentConceptIds = Array.from(args.selectedOptions)
+                                    .map(o => o.value);
 
     if (!name || !argumentConceptIds.length || !productConceptId) {
         showMsg('ruleMsg',
@@ -645,8 +647,12 @@ function addRule() {
         return;
     }
 
+    // build weights — read from inputs if WEIGHTED, else default 1.0
     const argumentWeights = {};
-    argumentConceptIds.forEach(id => { argumentWeights[id] = 1.0; });
+    argumentConceptIds.forEach(id => {
+        const input = document.getElementById(`weight_${id}`);
+        argumentWeights[id] = input ? parseFloat(input.value) : 1.0;
+    });
 
     api('/api/associative-functions', {
         method: 'POST',
@@ -661,6 +667,7 @@ function addRule() {
         if (res.error) { showMsg('ruleMsg', res.error, 'error'); return; }
         showMsg('ruleMsg', 'Rule created.', 'success');
         document.getElementById('ruleName').value = '';
+        document.getElementById('argWeightInputs').innerHTML = '';
         loadCatalogue();
     })
     .catch(() => showMsg('ruleMsg', 'Error.', 'error'));
@@ -814,4 +821,44 @@ function createUser() {
         loadUserDropdown();
     })
     .catch(() => showMsg('userMsg', 'Error creating user.', 'error'));
+}
+function updateArgWeights() {
+    const sel      = document.getElementById('ruleArgsSource');
+    const strategy = document.getElementById('ruleStrategy').value;
+    const container= document.getElementById('argWeightInputs');
+    if (!sel || !container) return;
+
+    const selected = Array.from(sel.selectedOptions);
+
+    if (strategy === 'WEIGHTED' && selected.length > 0) {
+        container.innerHTML = `
+            <div style="background:var(--bg);border:1px solid var(--border);
+                        border-radius:6px;padding:12px;margin-bottom:4px">
+                <p class="small muted" style="margin-bottom:10px">
+                    <b>Set weight per concept</b>
+                    (higher weight = stronger evidence)
+                </p>
+                ${selected.map(o => `
+                    <div style="display:flex;align-items:center;
+                                gap:12px;margin-bottom:8px">
+                        <span style="flex:1;font-size:13px">${o.text}</span>
+                        <div style="display:flex;align-items:center;gap:6px">
+                            <label style="font-size:11px;color:var(--muted);
+                                          margin:0">Weight</label>
+                            <input type="number"
+                                   id="weight_${o.value}"
+                                   value="1.0"
+                                   step="0.1" min="0.1" max="10"
+                                   style="width:70px;padding:4px 8px;
+                                          border:1px solid var(--border);
+                                          border-radius:4px;font-size:13px">
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } else {
+        // Conjunctive — no weights needed, clear the inputs
+        container.innerHTML = '';
+    }
 }
